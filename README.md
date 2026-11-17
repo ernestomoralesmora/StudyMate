@@ -13,7 +13,7 @@ con un LLM.
 
 - Windows 10/11 (probado en un MSI Bravo 15 con la webcam integrada).
 - Python 3.11 o superior (desarrollado con 3.14).
-- Conexión a internet la primera vez, para descargar los modelos de MediaPipe (unos 12 MB).
+- Conexión a internet la primera vez, para descargar los modelos de MediaPipe (unos 35 MB).
 
 ## Instalación
 
@@ -68,8 +68,10 @@ python -m studymate.vision.pruebas.prueba_detectores
 
 ## Cómo funciona la detección
 
-En cada fotograma se detectan la cara, las manos y el móvil (MediaPipe Object
-Detector, clase COCO `cell phone`). Con eso, el fotograma sugiere un estado:
+En cada fotograma se detectan la cara y las manos. El móvil (MediaPipe Object
+Detector con EfficientDet-Lite2, clase COCO `cell phone`) se busca en un hilo aparte,
+en un recorte alrededor de cada mano para que salga grande. Si se deja de ver un
+momento, se sigue dando por visto durante 1 s. Con eso, el fotograma sugiere un estado:
 
 | Situación en el fotograma                                    | Estado sugerido |
 |--------------------------------------------------------------|-----------------|
@@ -94,6 +96,7 @@ El temporizador solo suma en ESTUDIANDO. El tiempo en DUDOSO queda pendiente:
 Todos los umbrales están en [`studymate/vision/config.py`](studymate/vision/config.py).
 
 La detección se ejecuta en un hilo aparte de la interfaz. En el MSI va a unos 17 fps.
+El móvil se reevalúa unas 5 veces por segundo sin frenar la cámara.
 
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.

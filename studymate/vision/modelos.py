@@ -23,6 +23,10 @@ MODELOS = {
         "efficientdet_lite0.tflite",
         _BASE + "object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite",
     ),
+    "objetos_preciso": (
+        "efficientdet_lite2.tflite",
+        _BASE + "object_detector/efficientdet_lite2/float32/latest/efficientdet_lite2.tflite",
+    ),
 }
 
 

@@ -32,6 +32,18 @@ UMBRAL_MOVIL_DUDOSO = 0.25
 # antes de comprobar si toca el recuadro del móvil.
 MARGEN_MANO = 0.5
 
-# El detector de objetos es el más lento: solo se ejecuta si hay alguna mano
-# (sin mano no puede haber "móvil en la mano") y, como mucho, cada N fotogramas.
-DETECTAR_OBJETOS_CADA = 2
+# Modelo para el móvil: "objetos_preciso" (EfficientDet-Lite2, ~175 ms) u
+# "objetos" (Lite0, ~60 ms, detecta peor). Va en su propio hilo, así que el
+# modelo lento no baja los fps de la cámara.
+MODELO_OBJETOS = "objetos_preciso"
+
+# El móvil se busca en un recorte alrededor de cada mano (en vez de en la imagen
+# entera reducida), para que salga grande. El recorte es la mano ampliada esta
+# fracción de su tamaño por cada lado, con un lado mínimo en píxeles.
+MARGEN_RECORTE = 1.0
+LADO_MIN_RECORTE = 200
+
+# Se usa la mejor detección del móvil de estos últimos segundos: si deja de
+# detectarse un momento o sale con poca puntuación (medio tapado por los dedos),
+# se sigue dando por visto.
+MEMORIA_MOVIL_S = 1.0
