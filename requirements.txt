@@ -1,0 +1,6 @@
+# Fase 1: cámara y temporizador
+mediapipe>=1.2.3
+# MediaPipe ya instala opencv-contrib-python. No instalar también "opencv-python":
+# los dos paquetes comparten la carpeta cv2 y se pisan.
+opencv-contrib-python>=5.0
+numpy>=2.0

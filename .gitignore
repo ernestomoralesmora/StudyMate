@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# StudyMate
+# Modelos de MediaPipe (se descargan solos la primera vez)
+studymate/vision/modelos/
+# Perfil e historial del usuario: datos personales, no se suben
+studymate/data/*.json
