@@ -4,3 +4,6 @@ mediapipe>=1.2.3
 # los dos paquetes comparten la carpeta cv2 y se pisan.
 opencv-contrib-python>=5.0
 numpy>=2.0
+# Para el detector de móviles YOLO (modelo ONNX incluido en el repositorio).
+# No hace falta ultralytics ni PyTorch: ver herramientas/exportar_yolo.py.
+onnxruntime>=1.20

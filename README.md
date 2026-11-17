@@ -13,7 +13,7 @@ con un LLM.
 
 - Windows 10/11 (probado en un MSI Bravo 15 con la webcam integrada).
 - Python 3.11 o superior (desarrollado con 3.14).
-- Conexión a internet la primera vez, para descargar los modelos de MediaPipe (unos 35 MB).
+- Conexión a internet la primera vez, para descargar los modelos de MediaPipe (unos 12 MB).
 
 ## Instalación
 
@@ -68,10 +68,9 @@ python -m studymate.vision.pruebas.prueba_detectores
 
 ## Cómo funciona la detección
 
-En cada fotograma se detectan la cara y las manos. El móvil (MediaPipe Object
-Detector con EfficientDet-Lite2, clase COCO `cell phone`) se busca en un hilo aparte,
-en un recorte alrededor de cada mano para que salga grande. Si se deja de ver un
-momento, se sigue dando por visto durante 1 s. Con eso, el fotograma sugiere un estado:
+En cada fotograma se detectan la cara y las manos con MediaPipe. El móvil (clase COCO
+`cell phone`) se busca con **YOLO26n** en un hilo aparte, en un recorte alrededor de
+cada mano para que salga grande. Con eso, el fotograma sugiere un estado:
 
 | Situación en el fotograma                                    | Estado sugerido |
 |--------------------------------------------------------------|-----------------|
@@ -95,8 +94,23 @@ El temporizador solo suma en ESTUDIANDO. El tiempo en DUDOSO queda pendiente:
 
 Todos los umbrales están en [`studymate/vision/config.py`](studymate/vision/config.py).
 
-La detección se ejecuta en un hilo aparte de la interfaz. En el MSI va a unos 17 fps.
-El móvil se reevalúa unas 5 veces por segundo sin frenar la cámara.
+La detección se ejecuta en un hilo aparte de la interfaz. En el MSI va a unos 16 fps.
+
+### Por qué YOLO para el móvil
+
+Primero se usó el detector de objetos de MediaPipe (EfficientDet-Lite), pero confundía
+con un móvil cosas rectangulares cerca de la mano, por ejemplo al dibujar cuadrados.
+Por eso se pasó a YOLO, que era el plan B del proyecto:
+
+- El modelo va exportado a ONNX y se ejecuta con `onnxruntime`. No hace falta instalar
+  Ultralytics ni PyTorch.
+- Tarda unos 20 ms por análisis, frente a los ~175 ms de EfficientDet-Lite2.
+- El modelo (`studymate/vision/modelos/yolo26n_320.onnx`, ~10 MB) va incluido en el
+  repositorio. Cómo se generó: [`herramientas/exportar_yolo.py`](herramientas/exportar_yolo.py).
+- Los modelos YOLO de Ultralytics tienen licencia AGPL-3.0.
+
+Para comparar con los detectores de MediaPipe, los dos scripts de prueba admiten
+`--modelo objetos_preciso` (Lite2) o `--modelo objetos` (Lite0).
 
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.

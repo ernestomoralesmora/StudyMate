@@ -7,7 +7,10 @@ azul fino es el recorte donde se está buscando el móvil.
 Al salir, imprime cuántas veces se detectó el móvil en la mano mientras
 había manos a la vista, y con qué puntuación.
 
-Uso:  python -m studymate.vision.pruebas.prueba_detectores [--camara N]
+Para comprobar falsos positivos, haz lo mismo sin móvil (escribir, dibujar...):
+el porcentaje de "móvil en la mano" debería quedarse cerca de 0 %.
+
+Uso:  python -m studymate.vision.pruebas.prueba_detectores [--camara N] [--modelo M]
 Tecla Q / Esc para salir.
 """
 
@@ -26,9 +29,12 @@ from .dibujo import dibujar_observacion, texto
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--camara", type=int, default=0)
+    p.add_argument("--modelo", default=config.MODELO_OBJETOS,
+                   choices=["yolo", "objetos_preciso", "objetos"],
+                   help="detector del móvil (para comparar)")
     args = p.parse_args()
 
-    analizador = Analizador()
+    analizador = Analizador(modelo_movil=args.modelo)
     inicio = anterior = time.monotonic()
     fps = 0.0
     con_manos = con_movil = 0
@@ -57,7 +63,7 @@ def main() -> None:
                     cv2.rectangle(frame, recorte[:2], recorte[2:], (255, 120, 0), 1)
                 dibujar_observacion(frame, obs)
                 texto(frame, f"Fotograma sugiere: {clasificar(obs).value}", 0)
-                texto(frame, f"{fps:.1f} fps   modelo movil: {config.MODELO_OBJETOS}", 1,
+                texto(frame, f"{fps:.1f} fps   modelo movil: {args.modelo}", 1,
                       (200, 200, 200), 0.5)
                 cv2.imshow("StudyMate - detectores", frame)
                 if cv2.waitKey(1) & 0xFF in (ord("q"), ord("Q"), 27):

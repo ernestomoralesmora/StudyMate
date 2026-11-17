@@ -8,6 +8,7 @@ import threading
 import time
 from dataclasses import dataclass
 
+from . import config
 from .camara import Camara
 from .detectores import Analizador
 from .estados import Estado, MaquinaEstados
@@ -28,10 +29,16 @@ class Instantanea:
 
 
 class MotorDeteccion(threading.Thread):
-    def __init__(self, clases_permitidas: frozenset[str] = frozenset(), indice_camara: int = 0):
+    def __init__(
+        self,
+        clases_permitidas: frozenset[str] = frozenset(),
+        indice_camara: int = 0,
+        modelo_movil: str = config.MODELO_OBJETOS,
+    ):
         super().__init__(daemon=True, name="deteccion")
         self.clases_permitidas = clases_permitidas
         self.indice_camara = indice_camara
+        self.modelo_movil = modelo_movil
         self.maquina = MaquinaEstados()
         self.temporizador = Temporizador()
         self.error: Exception | None = None
@@ -43,7 +50,7 @@ class MotorDeteccion(threading.Thread):
     def run(self) -> None:
         try:
             with Camara(self.indice_camara) as camara:
-                analizador = Analizador()
+                analizador = Analizador(self.modelo_movil)
                 try:
                     self._bucle(camara, analizador)
                 finally:

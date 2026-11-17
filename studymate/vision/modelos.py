@@ -27,6 +27,9 @@ MODELOS = {
         "efficientdet_lite2.tflite",
         _BASE + "object_detector/efficientdet_lite2/float32/latest/efficientdet_lite2.tflite",
     ),
+    # YOLO26n exportado a ONNX (entrada 320x320). Va incluido en el repositorio
+    # porque exportarlo requiere PyTorch; ver herramientas/exportar_yolo.py.
+    "yolo": ("yolo26n_320.onnx", None),
 }
 
 
@@ -34,6 +37,11 @@ def ruta_modelo(nombre: str) -> str:
     """Devuelve la ruta local del modelo, descargándolo si no existe."""
     archivo, url = MODELOS[nombre]
     ruta = CARPETA / archivo
+    if not ruta.exists() and url is None:
+        raise FileNotFoundError(
+            f"Falta {ruta}. Debería venir en el repositorio; "
+            "si no, genéralo con herramientas/exportar_yolo.py."
+        )
     if not ruta.exists():
         CARPETA.mkdir(parents=True, exist_ok=True)
         print(f"Descargando modelo '{nombre}'...")

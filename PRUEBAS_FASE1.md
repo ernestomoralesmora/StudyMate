@@ -29,8 +29,8 @@ pip install -r requirements.txt
 python -m studymate.vision.pruebas.prueba_camara
 ```
 
-La primera vez tarda un poco en descargar los modelos (~35 MB). Las líneas `INFO:` y
-`W0000` de la consola son normales.
+La primera vez tarda un poco en descargar los modelos de MediaPipe (~12 MB). El de YOLO
+ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son normales.
 
 - [ ] Se abre la ventana con la cámara.
 - [ ] Los fps de la esquina superior izquierda están en 10 o más. Anota cuántos: ______
@@ -45,6 +45,7 @@ La primera vez tarda un poco en descargar los modelos (~35 MB). Las líneas `INF
 | 6 | Escribir a mano o pasar páginas | Sigue en **ESTUDIANDO** (nunca USANDO_MOVIL) | | |
 | 7 | Teclear en el portátil | Sigue en **ESTUDIANDO** | | |
 | 8 | Móvil sobre la mesa, sin tocarlo | Sigue en **ESTUDIANDO** | | |
+| 8b | Dibujar cuadrados o rectángulos, sujetar una goma, una calculadora o un estuche | Sigue en **ESTUDIANDO** (nunca USANDO_MOVIL) | | |
 | 9 | Coger el móvil y usarlo 15 s | A los ~3 s, **USANDO_MOVIL** (naranja) y se mantiene; el tiempo se para | | |
 | 10 | Soltar el móvil en la mesa | A los ~3–4 s, **ESTUDIANDO** | | |
 | 11 | Usar el móvil con la otra mano | Igual que la prueba 9 | | |
@@ -66,19 +67,34 @@ python -m studymate.vision.pruebas.prueba_camara --permitir-movil
 |---|-----------|--------------------|------|-------|
 | 16 | Usar el móvil 15 s | Sigue en **ESTUDIANDO** | | |
 
-## 2. Si algo del móvil falla
+## 2. Medir el detector del móvil
 
 ```powershell
 python -m studymate.vision.pruebas.prueba_detectores
 ```
 
-Usa el móvil 20–30 s, pulsa Q y copia aquí lo que sale en la consola:
+Haz cada prueba por separado (pulsa Q al acabar y vuelve a lanzar el script) y copia
+lo que sale en la consola.
+
+**a) Usando el móvil 20–30 s.** El porcentaje debería ser alto.
 
 ```
 Fotogramas con manos:
 Con móvil en la mano:
 Puntuación del móvil:
 ```
+
+**b) Sin móvil: dibujando cuadrados, escribiendo, con una goma o calculadora en la mano,
+20–30 s.** El porcentaje debería ser cercano a 0 %.
+
+```
+Fotogramas con manos:
+Con móvil en la mano:
+Puntuación del móvil:
+```
+
+Opcional: repite a) y b) con `--modelo objetos_preciso` (el detector antiguo de
+MediaPipe) para comparar los dos.
 
 Los umbrales están en `studymate/vision/config.py`. No los cambies sin avisar:
 anota los números y lo ajustamos juntos.
