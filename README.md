@@ -7,7 +7,7 @@ StudyMate es un compañero de estudio virtual. Usa la cámara para saber si est�
 estudiando y pausa el tiempo cuando no lo haces. Más adelante planificará las sesiones
 con un LLM.
 
-**Estado actual: fase 1 (cámara y temporizador).**
+**Estado actual: fase 1 (cámara y temporizador) hecha; fase 2 (LLM) en curso.**
 
 ## Requisitos
 
@@ -115,6 +115,46 @@ Para comparar con los detectores de MediaPipe, los dos scripts de prueba admiten
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.
 
+## Fase 2: cuestionario y plan con el LLM
+
+Antes de cada sesión, un cuestionario pregunta el tiempo disponible, cuántos minutos
+seguidos aguantas concentrado, el cansancio, los temas, lo que ya sabes y si necesitas el
+móvil o la tablet para estudiar. Con eso, Groq propone un plan de bloques
+(estudio + test de 5 min + descanso).
+
+La aplicación **no se fía del plan**: comprueba que cada bloque cabe en tu concentración
+(más corto si estás cansado), que los descansos son razonables y que el total cabe en el
+tiempo disponible. Si no cumple, le pide a Groq que lo corrija una vez. Si sigue mal o no
+hay conexión, usa un **plan básico** calculado sin LLM y avisa.
+
+### Clave de Groq
+
+Crea una clave en <https://console.groq.com/keys> y guárdala como variable de entorno
+(no la pongas en el código ni la subas al repositorio):
+
+```powershell
+setx GROQ_API_KEY "tu_clave"
+```
+
+Cierra y vuelve a abrir la terminal (o VS Code) para que se aplique.
+
+### Probarlo
+
+```powershell
+# Sin conexión: lógica del cuestionario, validación y plan básico con respuestas inventadas
+python -m studymate.llm.pruebas.prueba_plan
+
+# Con Groq: rellenas el cuestionario en la consola y ves el plan propuesto
+python -m studymate.llm.pruebas.prueba_plan_groq
+python -m studymate.llm.pruebas.prueba_plan_groq --apuntes mis_apuntes.txt
+```
+
+El último cuestionario se guarda en `studymate/data/perfil.json` (no se sube) y se propone
+por defecto la siguiente vez.
+
+> COCO no distingue el móvil de la tablet. Si marcas cualquiera de los dos como permitido,
+> ninguno de los dos pausará el tiempo en esa sesión.
+
 ## Estructura
 
 ```
@@ -130,7 +170,12 @@ studymate/
 │   ├── temporizador.py  # cuenta solo en ESTUDIANDO
 │   ├── motor.py         # hilo de detección que une todo lo anterior
 │   └── pruebas/         # scripts de prueba de cada parte
-├── llm/                 # fase 2
+├── llm/
+│   ├── cliente_groq.py  # llamadas a Groq con respuesta JSON por esquema
+│   ├── preguntas.py     # 5 preguntas tipo test por bloque (RF7)
+│   ├── cuestionario.py  # cuestionario inicial y perfil de la sesión (RF5, RF11)
+│   ├── plan.py          # plan de bloques, validación y plan básico (RF6, RNF5, RNF8)
+│   └── pruebas/         # pruebas con y sin conexión
 ├── ui/                  # fase 3
 └── data/                # perfil e historial (JSON, no se suben)
 ```
