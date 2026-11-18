@@ -47,6 +47,7 @@ class PerfilSesion:
     temas: list[str]
     conocimiento_previo: int = 2  # 1 (nada) a 5 (solo repasar)
     dispositivos_permitidos: list[str] = field(default_factory=list)  # claves de DISPOSITIVOS
+    con_test: bool = True  # test al final de cada bloque (se puede desactivar)
     fecha: str = field(default_factory=lambda: datetime.now().isoformat(timespec="minutes"))
 
     def __post_init__(self) -> None:
@@ -111,6 +112,46 @@ def _pedir_entero(texto: str, minimo: int, maximo: int, defecto: int | None) -> 
         print(f"  Escribe un número entre {minimo} y {maximo}.")
 
 
+def _pedir_si_no(texto: str, defecto: bool) -> bool:
+    sufijo = " [S/n]" if defecto else " [s/N]"
+    while True:
+        valor = input(f"{texto}{sufijo}: ").strip().lower()
+        if not valor:
+            return defecto
+        if valor in ("s", "si", "sí"):
+            return True
+        if valor in ("n", "no"):
+            return False
+        print("  Responde s (sí) o n (no).")
+
+
+def _pedir_dispositivos() -> list[str]:
+    """Pide los dispositivos permitidos hasta que la respuesta sea válida."""
+    equivalencias = {"movil": "movil", "móvil": "movil", "tablet": "tablet"}
+    nada = {"", "nada", "ninguno", "no"}
+    while True:
+        valor = input(
+            "¿Necesitas usar el móvil o la tablet para estudiar? "
+            "(movil, tablet, movil,tablet o nada): "
+        ).strip().lower()
+        if valor in nada:
+            return []
+        partes = [p.strip() for p in valor.split(",") if p.strip()]
+        if partes and all(p in equivalencias for p in partes):
+            return sorted({equivalencias[p] for p in partes})
+        print("  Escribe movil, tablet, las dos separadas por una coma, o nada.")
+
+
+def _pedir_temas() -> list[str]:
+    while True:
+        temas = [t.strip() for t in input(
+            "¿Qué temas o apartados vas a estudiar? (separados por comas): "
+        ).split(",") if t.strip()]
+        if temas:
+            return temas
+        print("  Escribe al menos un tema.")
+
+
 def preguntar_por_consola() -> PerfilSesion:
     anterior = cargar_perfil()
     print("\n=== StudyMate · Antes de empezar ===\n")
@@ -124,19 +165,23 @@ def preguntar_por_consola() -> PerfilSesion:
     )
     print("¿Cómo de cansado estás? " + ", ".join(f"{k}={v}" for k, v in NIVELES_CANSANCIO.items()))
     cansancio = _pedir_entero("Cansancio", 1, 5, 2)
-    temas_txt = input("¿Qué temas o apartados vas a estudiar? (separados por comas): ")
+    temas = _pedir_temas()
     print("¿Cuánto sabes ya? " + ", ".join(f"{k}={v}" for k, v in NIVELES_CONOCIMIENTO.items()))
     conocimiento = _pedir_entero("Conocimiento previo", 1, 5, 2)
-    disp = input("¿Necesitas usar el móvil o la tablet para estudiar? (movil, tablet o nada): ")
-    dispositivos = [d.strip().lower() for d in disp.split(",") if d.strip().lower() in DISPOSITIVOS]
+    dispositivos = _pedir_dispositivos()
+    con_test = _pedir_si_no(
+        "¿Quieres un test de 5 preguntas al final de cada bloque?",
+        anterior.con_test if anterior else True,
+    )
 
     perfil = PerfilSesion(
         tiempo_disponible_min=tiempo,
         concentracion_min=concentracion,
         cansancio=cansancio,
-        temas=temas_txt.split(","),
+        temas=temas,
         conocimiento_previo=conocimiento,
         dispositivos_permitidos=dispositivos,
+        con_test=con_test,
     )
     guardar_perfil(perfil)
     return perfil

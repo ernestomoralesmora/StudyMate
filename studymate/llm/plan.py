@@ -17,7 +17,8 @@ from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, 
 
 # --- Reglas de tiempos -------------------------------------------------------
 MIN_ESTUDIO = 5          # minutos mínimos de un bloque de estudio
-MINUTOS_TEST = 5         # el test de 5 preguntas
+MINUTOS_TEST = 5         # el test de 5 preguntas (si el estudiante lo quiere)
+MAX_SIN_USAR = 3         # minutos de estudio que el plan del LLM puede perder respecto al óptimo
 MIN_DESCANSO = 3
 MAX_DESCANSO = 15
 # Con cansancio alto se acortan los bloques respecto a la concentración declarada.
@@ -74,6 +75,39 @@ class Plan:
         return sum(b.total for b in self.bloques)
 
 
+def minutos_test(perfil: PerfilSesion) -> int:
+    return MINUTOS_TEST if perfil.con_test else 0
+
+
+def descanso_base(perfil: PerfilSesion) -> int:
+    """Descanso entre bloques: más largo si está cansado, más corto con bloques cortos."""
+    if perfil.cansancio >= 4:
+        return 10
+    return 5 if duracion_maxima_bloque(perfil) >= 20 else MIN_DESCANSO
+
+
+def estudio_optimo(perfil: PerfilSesion) -> tuple[int, int]:
+    """(número de bloques, minutos de estudio) que dan MÁS tiempo de estudio.
+
+    Cada bloque añade un test y un descanso, así que más bloques no siempre es
+    mejor: se prueba cada número de bloques y se queda el que más estudio deja
+    (con empate, el de menos bloques).
+    """
+    maximo = duracion_maxima_bloque(perfil)
+    test, descanso = minutos_test(perfil), descanso_base(perfil)
+    mejor = (1, max(MIN_ESTUDIO, min(maximo, perfil.tiempo_disponible_min - test)))
+    n = 2
+    while True:
+        disponible = perfil.tiempo_disponible_min - n * test - (n - 1) * descanso
+        if disponible < n * MIN_ESTUDIO:
+            break
+        estudio = min(n * maximo, disponible)
+        if estudio > mejor[1]:
+            mejor = (n, estudio)
+        n += 1
+    return mejor
+
+
 def duracion_maxima_bloque(perfil: PerfilSesion) -> int:
     """Minutos máximos de estudio seguidos, según concentración y cansancio."""
     return max(MIN_ESTUDIO, int(perfil.concentracion_min * FACTOR_CANSANCIO[perfil.cansancio]))
@@ -93,8 +127,8 @@ def validar_plan(plan: Plan, perfil: PerfilSesion) -> list[str]:
                 f"Bloque {i}: {b.minutos_estudio} min de estudio; debe estar entre "
                 f"{MIN_ESTUDIO} y {maximo}."
             )
-        if b.minutos_test != MINUTOS_TEST:
-            errores.append(f"Bloque {i}: el test debe durar {MINUTOS_TEST} min.")
+        if b.minutos_test != minutos_test(perfil):
+            errores.append(f"Bloque {i}: el test debe durar {minutos_test(perfil)} min.")
         ultimo = i == len(plan.bloques)
         minimo_descanso = 0 if ultimo else MIN_DESCANSO
         if not minimo_descanso <= b.minutos_descanso <= MAX_DESCANSO:
@@ -112,13 +146,13 @@ def validar_plan(plan: Plan, perfil: PerfilSesion) -> list[str]:
     sin_cubrir = [t for t in perfil.temas if t.casefold() not in temas_plan]
     if sin_cubrir:
         errores.append(f"Faltan temas por incluir: {', '.join(sin_cubrir)}.")
-    if len(plan.bloques) > 1:
-        minimo_ultimo = max(MIN_ESTUDIO, maximo // 2)
-        if plan.bloques[-1].minutos_estudio < minimo_ultimo:
-            errores.append(
-                f"El último bloque tiene solo {plan.bloques[-1].minutos_estudio} min de "
-                f"estudio; debe tener al menos {minimo_ultimo} o unirse al anterior."
-            )
+    _, optimo = estudio_optimo(perfil)
+    estudio = sum(b.minutos_estudio for b in plan.bloques)
+    if estudio < optimo - MAX_SIN_USAR:
+        errores.append(
+            f"Solo hay {estudio} min de estudio y se pueden conseguir {optimo}: usa menos "
+            f"bloques y más largos (hasta {maximo} min cada uno)."
+        )
     return errores
 
 
@@ -130,14 +164,17 @@ def _peticion(perfil: PerfilSesion, apuntes: str | None, errores: list[str] | No
         "concreta de qué aprender), minutos_estudio, minutos_test y minutos_descanso.\n\n"
         "REGLAS (obligatorias):\n"
         f"- minutos_estudio entre {MIN_ESTUDIO} y {maximo} en cada bloque.\n"
-        f"- minutos_test = {MINUTOS_TEST} en todos los bloques.\n"
+        f"- minutos_test = {minutos_test(perfil)} en todos los bloques "
+        f"({'el estudiante quiere test' if perfil.con_test else 'el estudiante no quiere test'}).\n"
         f"- minutos_descanso entre {MIN_DESCANSO} y {MAX_DESCANSO}; en el último bloque puede ser 0.\n"
         f"- La suma de todos los minutos no puede pasar de {perfil.tiempo_disponible_min}.\n"
         "- Usa exactamente los nombres de los temas que da el estudiante y que todos "
         "aparezcan. Si hay más temas que bloques, agrupa varios en un bloque "
         "separándolos por comas en 'tema'.\n"
-        f"- El último bloque no puede tener menos de {max(MIN_ESTUDIO, maximo // 2)} min de estudio.\n"
-        "- Aprovecha el tiempo: no dejes más de 10 minutos sin usar si caben más bloques.\n"
+        f"- Maximiza el tiempo de ESTUDIO: cada bloque añade test y descanso, así que usa "
+        f"los menos bloques posibles, cada uno lo más cerca de {maximo} min. El estudio total "
+        f"debe ser de al menos {estudio_optimo(perfil)[1] - MAX_SIN_USAR} min. Bloques de "
+        "duración parecida.\n"
         "- Si el estudiante está cansado, pon descansos algo más largos.\n"
         "- Si conoce poco el tema, dedica más bloques a los temas nuevos; si solo quiere "
         "repasar, bloques más cortos y variados.\n"
@@ -175,37 +212,31 @@ def _agrupar(temas: list[str], n: int) -> list[list[str]]:
 
 
 def plan_basico(perfil: PerfilSesion, aviso: str | None = None) -> Plan:
-    """Plan sin LLM: bloques iguales que caben en el tiempo, con todos los temas repartidos."""
+    """Plan sin LLM: usa todo el tiempo con bloques parecidos y reparte todos los temas."""
     maximo = duracion_maxima_bloque(perfil)
-    descanso = 10 if perfil.cansancio >= 4 else 5
-    tiempo = perfil.tiempo_disponible_min
-    # Bloques completos que caben (el último no lleva descanso).
-    n = max(1, (tiempo + descanso) // (maximo + MINUTOS_TEST + descanso))
-    # Con el tiempo que sobra, si da para medio bloque o más, se añade uno más
-    # y se reparten los minutos de estudio entre todos por igual.
-    sobra = tiempo - (n * (maximo + MINUTOS_TEST) + (n - 1) * descanso)
-    if sobra >= descanso + MINUTOS_TEST + max(MIN_ESTUDIO, maximo // 2):
-        n += 1
-    estudio_total = tiempo - n * MINUTOS_TEST - (n - 1) * descanso
-    estudio = max(MIN_ESTUDIO, min(maximo, estudio_total // n))
+    test = minutos_test(perfil)
+    descanso = descanso_base(perfil)
+    n, total = estudio_optimo(perfil)
+    estudios = [total // n + (1 if i < total % n else 0) for i in range(n)]
+
     grupos = _agrupar(perfil.temas, n)
     bloques = []
-    for i, grupo in enumerate(grupos):
+    for i, (grupo, estudio) in enumerate(zip(grupos, estudios)):
         tema = ", ".join(grupo)
-        ultimo = i == n - 1
-        bloques.append(Bloque(tema, f"Estudiar {tema}", estudio, MINUTOS_TEST,
-                              0 if ultimo else descanso))
+        bloques.append(Bloque(tema, f"Estudiar {tema}", estudio, test,
+                              0 if i == n - 1 else descanso))
     avisos = [aviso] if aviso else []
     if len(perfil.temas) > n:
         avisos.append(
             f"Tienes {len(perfil.temas)} temas y caben {n} bloques: se estudian "
             "varios temas en cada bloque."
         )
+    con_test = f", un test de {test} min" if test else ""
     return Plan(
         bloques=bloques,
         justificacion=(
-            f"{n} bloques de {estudio} min (según tu concentración y cansancio), "
-            f"con un test de {MINUTOS_TEST} min y {descanso} min de descanso entre bloques."
+            f"{n} bloque{'s' if n > 1 else ''} de unos {estudios[0]} min (según tu "
+            f"concentración y cansancio){con_test} y {descanso} min de descanso entre bloques."
         ),
         origen="basico",
         avisos=avisos,
@@ -251,10 +282,11 @@ def describir_plan(plan: Plan) -> str:
     for aviso in plan.avisos:
         lineas.append(f"⚠ {aviso}")
     for i, b in enumerate(plan.bloques, start=1):
+        test = f" + {b.minutos_test} min test" if b.minutos_test else ""
         descanso = f" + {b.minutos_descanso} min descanso" if b.minutos_descanso else ""
         lineas.append(
-            f"{i}. {b.tema}: {b.minutos_estudio} min estudio + {b.minutos_test} min test"
-            f"{descanso}\n   Objetivo: {b.objetivo}"
+            f"{i}. {b.tema}: {b.minutos_estudio} min estudio{test}{descanso}"
+            f"\n   Objetivo: {b.objetivo}"
         )
     lineas.append(f"Total: {plan.total} min")
     if plan.justificacion:

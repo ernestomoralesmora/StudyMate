@@ -119,8 +119,10 @@ internet.
 
 Antes de cada sesión, un cuestionario pregunta el tiempo disponible, cuántos minutos
 seguidos aguantas concentrado, el cansancio, los temas, lo que ya sabes y si necesitas el
-móvil o la tablet para estudiar. Con eso, Groq propone un plan de bloques
-(estudio + test de 5 min + descanso).
+móvil o la tablet para estudiar, y si quieres test al final de cada bloque (por defecto,
+sí). Con eso, Groq propone un plan de bloques (estudio + test de 5 min + descanso) que
+**maximiza el tiempo de estudio**: como cada bloque añade un test y un descanso, usa los
+menos bloques posibles, cada uno lo más cerca de lo que aguantas concentrado.
 
 La aplicación **no se fía del plan**: comprueba que cada bloque cabe en tu concentración
 (más corto si estás cansado), que los descansos son razonables y que el total cabe en el
