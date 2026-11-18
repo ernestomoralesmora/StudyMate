@@ -1,7 +1,7 @@
 """Prueba principal de la fase 1: cámara con el estado y el tiempo en pantalla.
 
 Uso (desde la raíz del repositorio):
-    python -m studymate.vision.pruebas.prueba_camara [--camara N] [--permitir-movil]
+    python -m studymate.vision.pruebas.prueba_camara [--camara N] [--permitir-movil] [--modelo M]
 
 Teclas:  Q / Esc = salir   S = sí estaba estudiando   N = no estaba estudiando
 """
@@ -10,6 +10,7 @@ import argparse
 
 import cv2
 
+from .. import config
 from ..estados import Estado
 from ..motor import MotorDeteccion
 from ..temporizador import Temporizador
@@ -23,10 +24,14 @@ def main() -> None:
     p.add_argument("--camara", type=int, default=0, help="índice de la webcam (0 = integrada)")
     p.add_argument("--permitir-movil", action="store_true",
                    help="el móvil/tablet en la mano no pausa (dispositivo permitido)")
+    p.add_argument("--modelo", default=config.MODELO_OBJETOS,
+                   choices=["yolo", "objetos_preciso", "objetos"],
+                   help="detector del móvil (para comparar)")
     args = p.parse_args()
 
     permitidas = frozenset({"cell phone"}) if args.permitir_movil else frozenset()
-    motor = MotorDeteccion(clases_permitidas=permitidas, indice_camara=args.camara)
+    motor = MotorDeteccion(clases_permitidas=permitidas, indice_camara=args.camara,
+                           modelo_movil=args.modelo)
     print("Abriendo cámara y cargando modelos...")
     motor.start()
     motor.esperar_listo(timeout=60)

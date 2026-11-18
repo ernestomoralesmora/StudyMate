@@ -7,7 +7,7 @@ StudyMate es un compañero de estudio virtual. Usa la cámara para saber si est�
 estudiando y pausa el tiempo cuando no lo haces. Más adelante planificará las sesiones
 con un LLM.
 
-**Estado actual: fase 1 (cámara y temporizador).**
+**Estado actual: fase 1 (cámara y temporizador) hecha; fase 2 (LLM) en curso.**
 
 ## Requisitos
 
@@ -68,8 +68,9 @@ python -m studymate.vision.pruebas.prueba_detectores
 
 ## Cómo funciona la detección
 
-En cada fotograma se detectan la cara, las manos y el móvil (MediaPipe Object
-Detector, clase COCO `cell phone`). Con eso, el fotograma sugiere un estado:
+En cada fotograma se detectan la cara y las manos con MediaPipe. El móvil (clase COCO
+`cell phone`) se busca con **YOLO26n** en un hilo aparte, en un recorte alrededor de
+cada mano para que salga grande. Con eso, el fotograma sugiere un estado:
 
 | Situación en el fotograma                                    | Estado sugerido |
 |--------------------------------------------------------------|-----------------|
@@ -93,10 +94,68 @@ El temporizador solo suma en ESTUDIANDO. El tiempo en DUDOSO queda pendiente:
 
 Todos los umbrales están en [`studymate/vision/config.py`](studymate/vision/config.py).
 
-La detección se ejecuta en un hilo aparte de la interfaz. En el MSI va a unos 17 fps.
+La detección se ejecuta en un hilo aparte de la interfaz. En el MSI va a unos 16 fps.
+
+### Por qué YOLO para el móvil
+
+Primero se usó el detector de objetos de MediaPipe (EfficientDet-Lite), pero confundía
+con un móvil cosas rectangulares cerca de la mano, por ejemplo al dibujar cuadrados.
+Por eso se pasó a YOLO, que era el plan B del proyecto:
+
+- El modelo va exportado a ONNX y se ejecuta con `onnxruntime`. No hace falta instalar
+  Ultralytics ni PyTorch.
+- Tarda unos 20 ms por análisis, frente a los ~175 ms de EfficientDet-Lite2.
+- El modelo (`studymate/vision/modelos/yolo26n_320.onnx`, ~10 MB) va incluido en el
+  repositorio. Cómo se generó: [`herramientas/exportar_yolo.py`](herramientas/exportar_yolo.py).
+- Los modelos YOLO de Ultralytics tienen licencia AGPL-3.0.
+
+Para comparar con los detectores de MediaPipe, los dos scripts de prueba admiten
+`--modelo objetos_preciso` (Lite2) o `--modelo objetos` (Lite0).
 
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.
+
+## Fase 2: cuestionario y plan con el LLM
+
+Antes de cada sesión, un cuestionario pregunta el tiempo disponible, cuántos minutos
+seguidos aguantas concentrado, el cansancio, los temas, lo que ya sabes y si necesitas el
+móvil o la tablet para estudiar, y si quieres test al final de cada bloque (por defecto,
+sí). Con eso, Groq propone un plan de bloques (estudio + test de 5 min + descanso) que
+**maximiza el tiempo de estudio**: como cada bloque añade un test y un descanso, usa los
+menos bloques posibles, cada uno lo más cerca de lo que aguantas concentrado.
+
+La aplicación **no se fía del plan**: comprueba que cada bloque cabe en tu concentración
+(más corto si estás cansado), que los descansos son razonables y que el total cabe en el
+tiempo disponible. Si no cumple, le pide a Groq que lo corrija una vez. Si sigue mal o no
+hay conexión, usa un **plan básico** calculado sin LLM y avisa.
+
+### Clave de Groq
+
+Crea una clave en <https://console.groq.com/keys> y guárdala como variable de entorno
+(no la pongas en el código ni la subas al repositorio):
+
+```powershell
+setx GROQ_API_KEY "tu_clave"
+```
+
+Cierra y vuelve a abrir la terminal (o VS Code) para que se aplique.
+
+### Probarlo
+
+```powershell
+# Sin conexión: lógica del cuestionario, validación y plan básico con respuestas inventadas
+python -m studymate.llm.pruebas.prueba_plan
+
+# Con Groq: rellenas el cuestionario en la consola y ves el plan propuesto
+python -m studymate.llm.pruebas.prueba_plan_groq
+python -m studymate.llm.pruebas.prueba_plan_groq --apuntes mis_apuntes.txt
+```
+
+El último cuestionario se guarda en `studymate/data/perfil.json` (no se sube) y se propone
+por defecto la siguiente vez.
+
+> COCO no distingue el móvil de la tablet. Si marcas cualquiera de los dos como permitido,
+> ninguno de los dos pausará el tiempo en esa sesión.
 
 ## Estructura
 
@@ -113,7 +172,12 @@ studymate/
 │   ├── temporizador.py  # cuenta solo en ESTUDIANDO
 │   ├── motor.py         # hilo de detección que une todo lo anterior
 │   └── pruebas/         # scripts de prueba de cada parte
-├── llm/                 # fase 2
+├── llm/
+│   ├── cliente_groq.py  # llamadas a Groq con respuesta JSON por esquema
+│   ├── preguntas.py     # 5 preguntas tipo test por bloque (RF7)
+│   ├── cuestionario.py  # cuestionario inicial y perfil de la sesión (RF5, RF11)
+│   ├── plan.py          # plan de bloques, validación y plan básico (RF6, RNF5, RNF8)
+│   └── pruebas/         # pruebas con y sin conexión
 ├── ui/                  # fase 3
 └── data/                # perfil e historial (JSON, no se suben)
 ```
