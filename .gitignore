@@ -221,6 +221,8 @@ __marimo__/
 
 # StudyMate
 # Modelos de MediaPipe (se descargan solos la primera vez)
-studymate/vision/modelos/
+studymate/vision/modelos/*
+# ...salvo YOLO: para exportarlo hace falta PyTorch, así que va incluido (herramientas/exportar_yolo.py)
+!studymate/vision/modelos/yolo26n_320.onnx
 # Perfil e historial del usuario: datos personales, no se suben
 studymate/data/*.json

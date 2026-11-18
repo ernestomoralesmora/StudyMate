@@ -32,6 +32,23 @@ UMBRAL_MOVIL_DUDOSO = 0.25
 # antes de comprobar si toca el recuadro del móvil.
 MARGEN_MANO = 0.5
 
-# El detector de objetos es el más lento: solo se ejecuta si hay alguna mano
-# (sin mano no puede haber "móvil en la mano") y, como mucho, cada N fotogramas.
-DETECTAR_OBJETOS_CADA = 2
+# Modelo para el móvil (va en su propio hilo, no baja los fps de la cámara):
+#   "yolo"            YOLO26n con onnxruntime, ~20 ms. Menos falsos positivos.
+#   "objetos_preciso" EfficientDet-Lite2 de MediaPipe, ~175 ms.
+#   "objetos"         EfficientDet-Lite0 de MediaPipe, ~60 ms. El que peor detecta.
+# Los de MediaPipe confundían con un móvil cosas rectangulares cerca de la mano
+# (p. ej., dibujar cuadrados), por eso se usa YOLO (plan B del proyecto).
+MODELO_OBJETOS = "yolo"
+# Hilos de CPU para YOLO; el resto queda para la cara y las manos.
+HILOS_YOLO = 2
+
+# El móvil se busca en un recorte alrededor de cada mano (en vez de en la imagen
+# entera reducida), para que salga grande. El recorte es la mano ampliada esta
+# fracción de su tamaño por cada lado, con un lado mínimo en píxeles.
+MARGEN_RECORTE = 1.0
+LADO_MIN_RECORTE = 200
+
+# El resultado del último análisis del móvil sigue siendo válido estos segundos
+# (el hilo del móvil puede ir algo por detrás de la cámara). Los cortes más
+# largos ya los tolera la máquina de estados.
+MEMORIA_MOVIL_S = 0.5
