@@ -1,6 +1,9 @@
-# Fase 1: cámara y temporizador
+# Fase 1: camara y temporizador
 mediapipe>=1.2.3
-# MediaPipe ya instala opencv-contrib-python. No instalar también "opencv-python":
-# los dos paquetes comparten la carpeta cv2 y se pisan.
+# No instalar opencv-python junto a opencv-contrib-python:
+# ambos paquetes comparten la carpeta cv2.
 opencv-contrib-python>=5.0
 numpy>=2.0
+
+# Fase 2: generacion de preguntas con Groq
+groq==1.7.0
