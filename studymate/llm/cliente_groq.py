@@ -5,6 +5,7 @@ Al LLM solo se le envía texto: nunca imágenes de la cámara.
 """
 
 import json
+import os
 
 MODELO = "openai/gpt-oss-120b"
 
@@ -49,7 +50,16 @@ def consultar_json(
     """
     try:
         from groq import Groq
-
+    except ImportError as error:
+        raise ErrorConexionLLM(
+            "Falta la librería groq: ejecuta pip install -r requirements.txt"
+        ) from error
+    if not os.environ.get("GROQ_API_KEY"):
+        raise ErrorConexionLLM(
+            "No está definida la variable GROQ_API_KEY (tras el setx, cierra y "
+            "vuelve a abrir VS Code)"
+        )
+    try:
         cliente = Groq()
         respuesta = cliente.chat.completions.create(
             model=MODELO,

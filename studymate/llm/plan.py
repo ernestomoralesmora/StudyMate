@@ -106,10 +106,19 @@ def validar_plan(plan: Plan, perfil: PerfilSesion) -> list[str]:
         errores.append(
             f"El plan dura {plan.total} min y solo hay {perfil.tiempo_disponible_min}."
         )
-    temas_plan = {b.tema.strip().casefold() for b in plan.bloques}
+    temas_plan = {
+        parte.strip().casefold() for b in plan.bloques for parte in b.tema.split(",")
+    }
     sin_cubrir = [t for t in perfil.temas if t.casefold() not in temas_plan]
-    if sin_cubrir and len(plan.bloques) >= len(perfil.temas):
+    if sin_cubrir:
         errores.append(f"Faltan temas por incluir: {', '.join(sin_cubrir)}.")
+    if len(plan.bloques) > 1:
+        minimo_ultimo = max(MIN_ESTUDIO, maximo // 2)
+        if plan.bloques[-1].minutos_estudio < minimo_ultimo:
+            errores.append(
+                f"El último bloque tiene solo {plan.bloques[-1].minutos_estudio} min de "
+                f"estudio; debe tener al menos {minimo_ultimo} o unirse al anterior."
+            )
     return errores
 
 
@@ -124,7 +133,10 @@ def _peticion(perfil: PerfilSesion, apuntes: str | None, errores: list[str] | No
         f"- minutos_test = {MINUTOS_TEST} en todos los bloques.\n"
         f"- minutos_descanso entre {MIN_DESCANSO} y {MAX_DESCANSO}; en el último bloque puede ser 0.\n"
         f"- La suma de todos los minutos no puede pasar de {perfil.tiempo_disponible_min}.\n"
-        "- Usa exactamente los nombres de los temas que da el estudiante.\n"
+        "- Usa exactamente los nombres de los temas que da el estudiante y que todos "
+        "aparezcan. Si hay más temas que bloques, agrupa varios en un bloque "
+        "separándolos por comas en 'tema'.\n"
+        f"- El último bloque no puede tener menos de {max(MIN_ESTUDIO, maximo // 2)} min de estudio.\n"
         "- Aprovecha el tiempo: no dejes más de 10 minutos sin usar si caben más bloques.\n"
         "- Si el estudiante está cansado, pon descansos algo más largos.\n"
         "- Si conoce poco el tema, dedica más bloques a los temas nuevos; si solo quiere "
@@ -152,37 +164,47 @@ def _a_plan(datos: dict) -> Plan:
     return Plan(bloques=bloques, justificacion=datos.get("justificacion", "").strip())
 
 
+def _agrupar(temas: list[str], n: int) -> list[list[str]]:
+    """Reparte los temas en n grupos seguidos y lo más parecidos posible."""
+    grupos, inicio = [], 0
+    for i in range(n):
+        fin = round((i + 1) * len(temas) / n)
+        grupos.append(temas[inicio:fin] or [temas[i % len(temas)]])
+        inicio = fin
+    return grupos
+
+
 def plan_basico(perfil: PerfilSesion, aviso: str | None = None) -> Plan:
-    """Plan sin LLM: bloques del máximo permitido, repartiendo los temas por turnos."""
-    duracion = duracion_maxima_bloque(perfil)
+    """Plan sin LLM: bloques iguales que caben en el tiempo, con todos los temas repartidos."""
+    maximo = duracion_maxima_bloque(perfil)
     descanso = 10 if perfil.cansancio >= 4 else 5
-    bloques: list[Bloque] = []
-    restante = perfil.tiempo_disponible_min
-    i = 0
-    while True:
-        # El último bloque no necesita descanso.
-        estudio = min(duracion, restante - MINUTOS_TEST)
-        if estudio < MIN_ESTUDIO:
-            break
-        tema = perfil.temas[i % len(perfil.temas)]
-        bloques.append(Bloque(tema, f"Estudiar {tema}", estudio, MINUTOS_TEST, descanso))
-        restante -= estudio + MINUTOS_TEST + descanso
-        i += 1
-        if restante < MIN_ESTUDIO + MINUTOS_TEST:
-            break
-    if not bloques:
-        estudio = max(MIN_ESTUDIO, perfil.tiempo_disponible_min - MINUTOS_TEST)
-        bloques.append(Bloque(perfil.temas[0], f"Estudiar {perfil.temas[0]}", estudio,
-                              MINUTOS_TEST, 0))
-    bloques[-1].minutos_descanso = 0
-    # Si sobra tiempo por el descanso que se quitó al final, se alarga el último bloque.
-    sobra = perfil.tiempo_disponible_min - sum(b.total for b in bloques)
-    bloques[-1].minutos_estudio = min(duracion, bloques[-1].minutos_estudio + max(0, sobra))
+    tiempo = perfil.tiempo_disponible_min
+    # Bloques completos que caben (el último no lleva descanso).
+    n = max(1, (tiempo + descanso) // (maximo + MINUTOS_TEST + descanso))
+    # Con el tiempo que sobra, si da para medio bloque o más, se añade uno más
+    # y se reparten los minutos de estudio entre todos por igual.
+    sobra = tiempo - (n * (maximo + MINUTOS_TEST) + (n - 1) * descanso)
+    if sobra >= descanso + MINUTOS_TEST + max(MIN_ESTUDIO, maximo // 2):
+        n += 1
+    estudio_total = tiempo - n * MINUTOS_TEST - (n - 1) * descanso
+    estudio = max(MIN_ESTUDIO, min(maximo, estudio_total // n))
+    grupos = _agrupar(perfil.temas, n)
+    bloques = []
+    for i, grupo in enumerate(grupos):
+        tema = ", ".join(grupo)
+        ultimo = i == n - 1
+        bloques.append(Bloque(tema, f"Estudiar {tema}", estudio, MINUTOS_TEST,
+                              0 if ultimo else descanso))
     avisos = [aviso] if aviso else []
+    if len(perfil.temas) > n:
+        avisos.append(
+            f"Tienes {len(perfil.temas)} temas y caben {n} bloques: se estudian "
+            "varios temas en cada bloque."
+        )
     return Plan(
         bloques=bloques,
         justificacion=(
-            f"Bloques de {duracion} min (según tu concentración y cansancio), "
+            f"{n} bloques de {estudio} min (según tu concentración y cansancio), "
             f"con un test de {MINUTOS_TEST} min y {descanso} min de descanso entre bloques."
         ),
         origen="basico",
@@ -210,8 +232,8 @@ def generar_plan(
     for _ in range(reintentos + 1):
         try:
             plan = _a_plan(consultar_modelo(_peticion(perfil, apuntes, errores)))
-        except ErrorConexionLLM:
-            return plan_basico(perfil, "No hay conexión con el asistente: se usa un plan básico.")
+        except ErrorConexionLLM as error:
+            return plan_basico(perfil, f"No se ha podido usar el asistente ({error}). Se usa un plan básico.")
         except (KeyError, TypeError, ValueError) as error:
             errores = [f"La respuesta no tenía el formato pedido ({error})."]
             continue

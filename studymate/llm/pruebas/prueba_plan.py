@@ -79,8 +79,8 @@ def main() -> None:
     def sin_red(_):
         raise ErrorConexionLLM("sin red")
     plan = generar_plan(p, sin_red)
-    comprobar(plan.origen == "basico" and "conexión" in plan.avisos[0],
-              "se usa el plan básico y se avisa de la falta de conexión (RNF8)")
+    comprobar(plan.origen == "basico" and "sin red" in plan.avisos[0],
+              "se usa el plan básico y el aviso explica el motivo (RNF8)")
 
     print("\nPlan básico en varios casos")
     for t, c, k in [(60, 20, 2), (25, 25, 1), (120, 45, 4), (10, 5, 3), (480, 120, 5), (37, 13, 3)]:
@@ -88,6 +88,16 @@ def main() -> None:
         errores = validar_plan(pb, perfil(tiempo_disponible_min=t, concentracion_min=c, cansancio=k))
         comprobar(not errores, f"{t} min, concentración {c}, cansancio {k}: "
                                f"{len(pb.bloques)} bloques, {pb.total} min, válido")
+
+    print("\nCaso real de Pablo: 100 min, 20 de concentración, 8 temas")
+    p8 = perfil(tiempo_disponible_min=100, concentracion_min=20, cansancio=1,
+                temas=[str(i) for i in range(1, 9)])
+    pb = plan_basico(p8)
+    comprobar(not validar_plan(pb, p8), "el plan es válido")
+    cubiertos = {t.strip() for b in pb.bloques for t in b.tema.split(",")}
+    comprobar(cubiertos == set(p8.temas), "están los 8 temas")
+    comprobar(min(b.minutos_estudio for b in pb.bloques) >= 10, "ningún bloque de 5 min")
+    print(describir_plan(pb))
 
     print("\nEjemplo de plan básico (60 min, 20 min de concentración):\n")
     print(describir_plan(plan_basico(p)))
