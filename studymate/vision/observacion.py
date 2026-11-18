@@ -1,6 +1,6 @@
 """Qué se ha visto en un fotograma y qué estado sugiere.
 
-Es lógica pura (sin MediaPipe ni cámara) para poder probarla con datos inventados.
+Es lógica pura, sin MediaPipe ni cámara.
 Los recuadros son tuplas (x1, y1, x2, y2) en píxeles.
 """
 
@@ -33,8 +33,9 @@ class Observacion:
 
 def ampliar(r: Recuadro, fraccion: float) -> Recuadro:
     x1, y1, x2, y2 = r
-    dx, dy = (x2 - x1) * fraccion, (y2 - y1) * fraccion
-    return (x1 - dx, y1 - dy, x2 + dx, y2 + dy)
+    dx = (x2 - x1) * fraccion
+    dy = (y2 - y1) * fraccion
+    return x1 - dx, y1 - dy, x2 + dx, y2 + dy
 
 
 def se_tocan(a: Recuadro, b: Recuadro) -> bool:
@@ -42,28 +43,58 @@ def se_tocan(a: Recuadro, b: Recuadro) -> bool:
 
 
 def marcar_cercania(obs: Observacion, margen: float = config.MARGEN_MANO) -> None:
-    """Marca los dispositivos cuyo recuadro toca el de alguna mano (ampliado)."""
-    manos = [ampliar(m, margen) for m in obs.manos]
-    for d in obs.dispositivos:
-        d.cerca_de_mano = any(se_tocan(m, d.recuadro) for m in manos)
+    """Marca los dispositivos que tocan el recuadro ampliado de alguna mano."""
+    manos = [ampliar(mano, margen) for mano in obs.manos]
+    for dispositivo in obs.dispositivos:
+        dispositivo.cerca_de_mano = any(
+            se_tocan(mano, dispositivo.recuadro) for mano in manos
+        )
 
 
-def clasificar(obs: Observacion, clases_permitidas: frozenset[str] = frozenset()) -> Estado:
-    """Estado que sugiere este fotograma por sí solo (el "candidato")."""
+def clasificar(
+    obs: Observacion,
+    clases_permitidas: frozenset[str] = frozenset(),
+) -> Estado:
+    """Devuelve el estado que sugiere este fotograma."""
     en_mano = [
-        d for d in obs.dispositivos
-        if d.cerca_de_mano and d.clase not in clases_permitidas
+        dispositivo
+        for dispositivo in obs.dispositivos
+        if dispositivo.cerca_de_mano
+        and dispositivo.clase not in clases_permitidas
     ]
-    mejor = max((d.puntuacion for d in en_mano), default=0.0)
+    mejor = max((dispositivo.puntuacion for dispositivo in en_mano), default=0.0)
 
     if mejor >= config.UMBRAL_MOVIL:
         return Estado.USANDO_MOVIL
     if mejor >= config.UMBRAL_MOVIL_DUDOSO:
         return Estado.DUDOSO
+
+    # Si no vemos las manos, un móvil junto a la oreja es un caso dudoso.
+    if not obs.manos:
+        for dispositivo in obs.dispositivos:
+            if dispositivo.clase in clases_permitidas:
+                continue
+            if dispositivo.puntuacion < config.UMBRAL_MOVIL_DUDOSO:
+                continue
+
+            mx1, my1, mx2, my2 = dispositivo.recuadro
+            cx = (mx1 + mx2) / 2
+            cy = (my1 + my2) / 2
+
+            for x1, y1, x2, y2 in obs.caras:
+                ancho = x2 - x1
+                alto = y2 - y1
+
+                lado_izquierdo = x1 - 0.40 * ancho <= cx <= x1 + 0.25 * ancho
+                lado_derecho = x2 - 0.25 * ancho <= cx <= x2 + 0.40 * ancho
+                altura_oreja = y1 + 0.15 * alto <= cy <= y1 + 0.85 * alto
+
+                if altura_oreja and (lado_izquierdo or lado_derecho):
+                    return Estado.DUDOSO
+
     if obs.hay_cara:
         return Estado.ESTUDIANDO
     if obs.manos:
-        # Hay alguien (se ven las manos) pero no la cara: puede estar mirando
-        # los apuntes muy agachado. Mejor preguntar que pausar sin más.
+        # Puede estar mirando los apuntes con la cabeza fuera del encuadre.
         return Estado.DUDOSO
     return Estado.AUSENTE
