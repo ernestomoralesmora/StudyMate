@@ -28,17 +28,21 @@ from . import config
 from .observacion import Recuadro, SitioMovil, ampliar, area
 
 
-def cuadros_imagen_completa(ancho: int, alto: int) -> list[tuple[int, int, int, int]]:
-    """Cuadrados que cubren toda la imagen (YOLO trabaja con entradas cuadradas).
+def cuadros_imagen_completa(ancho: int, alto: int, lado: int | None = None) -> list[tuple[int, int, int, int]]:
+    """Cuadrados que cubren toda la imagen, solapados (YOLO trabaja con entradas cuadradas).
 
-    Con 640x480 salen dos cuadrados de 480 que se solapan en el centro.
+    Con lado=320 y 640x480 salen 6 cuadros a tamaño real: así el móvil sobre la
+    mesa, que se ve pequeño y en un borde, no se encoge al pasarlo a YOLO.
     """
-    lado = min(ancho, alto)
-    if ancho >= alto:
-        xs = sorted({0, ancho - lado} | set(range(0, ancho - lado, lado // 2)))
-        return [(x, 0, x + lado, lado) for x in xs]
-    ys = sorted({0, alto - lado} | set(range(0, alto - lado, lado // 2)))
-    return [(0, y, lado, y + lado) for y in ys]
+    lado = min(lado or config.LADO_BUSQUEDA_APARCADO, ancho, alto)
+
+    def posiciones(total: int) -> list[int]:
+        if total <= lado:
+            return [0]
+        n = -(-(total - lado) // (lado // 2)) + 1  # paso de medio cuadro
+        return sorted({round(i * (total - lado) / (n - 1)) for i in range(n)})
+
+    return [(x, y, x + lado, y + lado) for y in posiciones(alto) for x in posiciones(ancho)]
 
 
 def iou(a: Recuadro, b: Recuadro) -> float:
@@ -86,6 +90,8 @@ class VigilanteMovil:
     _fallos_seguidos: int = 0
     ultima_similitud: float = 0.0
     ultima_yolo: float = 0.0
+    # Lo mejor que se ha visto buscando (para enseñarlo en pantalla y ayudar a colocarlo).
+    mejor_busqueda: tuple[float, Recuadro] | None = None
 
     def __post_init__(self):
         self.estado = SitioMovil.BUSCANDO if self.activo else SitioMovil.SIN_USAR
@@ -100,8 +106,12 @@ class VigilanteMovil:
         for cx1, cy1, cx2, cy2 in cuadros_imagen_completa(ancho, alto):
             recorte = np.ascontiguousarray(frame_rgb[cy1:cy2, cx1:cx2])
             for clase, p, (x1, y1, x2, y2) in self.detectar(recorte):
-                if clase in config.CLASES_DISPOSITIVO and p >= config.UMBRAL_APARCADO and p > puntuacion:
+                if clase in config.CLASES_DISPOSITIVO and p > puntuacion:
                     mejor, puntuacion = (x1 + cx1, y1 + cy1, x2 + cx1, y2 + cy1), p
+        if mejor is not None:
+            self.mejor_busqueda = (puntuacion, mejor)
+        if puntuacion < config.UMBRAL_APARCADO:
+            mejor = None
         self._intentos += 1
         if mejor is not None:
             self._vistos.append(mejor)
@@ -116,16 +126,32 @@ class VigilanteMovil:
                 self.recuadro = tuple(float(np.median([r[i] for r in iguales])) for i in range(4))
                 # La plantilla incluye un poco de mesa alrededor: así tiene bordes
                 # aunque el móvil sea de un color liso (p. ej., boca abajo y negro).
-                gris = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
-                alto, ancho = gris.shape
-                x1, y1, x2, y2 = (int(round(v)) for v in ampliar(self.recuadro, 0.15))
-                x1, y1, x2, y2 = max(0, x1), max(0, y1), min(ancho, x2), min(alto, y2)
-                self.zona_plantilla = (x1, y1, x2, y2)
-                self.plantilla = gris[y1:y2, x1:x2].copy()
+                self._guardar_plantilla(frame_rgb)
                 self.estado = SitioMovil.EN_SU_SITIO
                 return
         if self._intentos >= config.INTENTOS_BUSCAR_APARCADO:
             self.estado = SitioMovil.NO_ENCONTRADO
+
+    def _guardar_plantilla(self, frame_rgb: np.ndarray) -> None:
+        gris = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+        alto, ancho = gris.shape
+        x1, y1, x2, y2 = (int(round(v)) for v in ampliar(self.recuadro, 0.15))
+        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(ancho, x2), min(alto, y2)
+        self.zona_plantilla = (x1, y1, x2, y2)
+        self.plantilla = gris[y1:y2, x1:x2].copy()
+
+    def marcar_a_mano(self, frame_rgb: np.ndarray, recuadro: Recuadro) -> None:
+        """Si YOLO no lo encuentra, el estudiante señala dónde está el móvil.
+        Entonces se vigila sobre todo comparando con la imagen guardada."""
+        self.recuadro = tuple(float(v) for v in recuadro)
+        self._guardar_plantilla(frame_rgb)
+        self._fallos_seguidos = 0
+        self.estado = SitioMovil.EN_SU_SITIO
+
+    def buscar_de_nuevo(self) -> None:
+        self._vistos, self._intentos, self._fallos_seguidos = [], 0, 0
+        self.recuadro = self.plantilla = self.zona_plantilla = self.mejor_busqueda = None
+        self.estado = SitioMovil.BUSCANDO
 
     # --- 2. Comprobar que sigue ahí ---------------------------------------------
     def comprobar(self, frame_rgb: np.ndarray) -> None:

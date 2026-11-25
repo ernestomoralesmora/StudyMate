@@ -137,10 +137,15 @@ class MotorDeteccion(threading.Thread):
             )
 
     @property
+    def vigilante(self):
+        """El VigilanteMovil (ver aparcado.py), o None si aún no ha arrancado."""
+        analizador = getattr(self, "_analizador", None)
+        return analizador.dispositivos.vigilante if analizador else None
+
+    @property
     def recuadro_aparcado(self):
         """Dónde se dejó el móvil (para dibujarlo), o None."""
-        analizador = getattr(self, "_analizador", None)
-        return analizador.dispositivos.vigilante.recuadro if analizador else None
+        return self.vigilante.recuadro if self.vigilante else None
 
     def detener(self) -> None:
         self._parar.set()

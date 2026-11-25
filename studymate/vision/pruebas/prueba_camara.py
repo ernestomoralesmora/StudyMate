@@ -8,6 +8,7 @@ Con --movil-a-la-vista, al empezar deja el móvil sobre la mesa donde la cámara
 vea (por ejemplo, a un lado): se localiza en unos segundos y luego se vigila su sitio.
 
 Teclas:  Q / Esc = salir   S = sí estaba estudiando   N = no estaba estudiando
+         Con --movil-a-la-vista:  M = marcar el móvil a mano   B = buscarlo otra vez
 """
 
 import argparse
@@ -59,12 +60,23 @@ def main() -> None:
                 texto(frame, f"{inst.fps:.1f} fps", 3, (200, 200, 200), 0.5)
                 sitio = inst.sitio_movil
                 if sitio != SitioMovil.SIN_USAR:
+                    v = motor.vigilante
+                    buscando = "Movil: dejalo en la mesa, a la vista..."
+                    if v is not None and v.mejor_busqueda:
+                        p_mejor, r_mejor = v.mejor_busqueda
+                        buscando = (f"Movil: buscando... mejor {p_mejor:.2f} "
+                                    f"(minimo {config.UMBRAL_APARCADO:.2f})")
+                        if sitio == SitioMovil.BUSCANDO:
+                            x1, y1, x2, y2 = (int(c) for c in r_mejor)
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 220, 120), 1)
                     avisos = {
-                        SitioMovil.BUSCANDO: "Movil: dejalo sobre la mesa, a la vista...",
-                        SitioMovil.NO_ENCONTRADO: "Movil: no lo veo, se vigila solo la mano",
+                        SitioMovil.BUSCANDO: buscando,
+                        SitioMovil.NO_ENCONTRADO: "Movil: no lo veo. M = marcar a mano, B = buscar",
                         SitioMovil.EN_SU_SITIO: "Movil: en su sitio",
                         SitioMovil.FUERA: "Movil: NO esta en su sitio",
                     }
+                    if v is not None and sitio in (SitioMovil.EN_SU_SITIO, SitioMovil.FUERA):
+                        avisos[sitio] += f"  (yolo {v.ultima_yolo:.2f}, parecido {v.ultima_similitud:.2f})"
                     texto(frame, avisos[sitio], 5, (255, 220, 120), 0.5)
                 recuadro = motor.recuadro_aparcado
                 if recuadro is not None and sitio in (SitioMovil.EN_SU_SITIO, SitioMovil.FUERA):
@@ -86,6 +98,15 @@ def main() -> None:
                 motor.confirmar_dudoso(True)
             elif tecla in (ord("n"), ord("N")):
                 motor.confirmar_dudoso(False)
+            elif tecla in (ord("b"), ord("B")) and motor.vigilante and args.movil_a_la_vista:
+                motor.vigilante.buscar_de_nuevo()
+            elif tecla in (ord("m"), ord("M")) and motor.vigilante and inst is not None and args.movil_a_la_vista:
+                # Se congela la imagen y se arrastra un recuadro alrededor del móvil.
+                foto = inst.frame.copy()
+                x, y, w, h = cv2.selectROI("Marca el movil y pulsa Enter (C = cancelar)", foto, False)
+                cv2.destroyWindow("Marca el movil y pulsa Enter (C = cancelar)")
+                if w > 5 and h > 5:
+                    motor.vigilante.marcar_a_mano(cv2.cvtColor(foto, cv2.COLOR_BGR2RGB), (x, y, x + w, y + h))
             if cv2.getWindowProperty(VENTANA, cv2.WND_PROP_VISIBLE) < 1 and inst is not None:
                 break  # se cerró la ventana con la X
     finally:

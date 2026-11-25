@@ -78,7 +78,9 @@ def prueba_movil_aparcado():
 
     from ..aparcado import VigilanteMovil, cuadros_imagen_completa
 
-    assert cuadros_imagen_completa(640, 480) == [(0, 0, 480, 480), (160, 0, 640, 480)]
+    assert cuadros_imagen_completa(640, 480, 480) == [(0, 0, 480, 480), (160, 0, 640, 480)]
+    cuadros = cuadros_imagen_completa(640, 480, 320)
+    assert len(cuadros) == 6 and cuadros[-1] == (320, 160, 640, 480)
 
     # Imagen con un "móvil" (rectángulo con dibujo) en la mesa, abajo a la derecha.
     rng = np.random.default_rng(1)
@@ -90,17 +92,17 @@ def prueba_movil_aparcado():
     v = VigilanteMovil(lambda r: [], activo=False)
     assert v.estado == SitioMovil.SIN_USAR and not v.vigilando
 
-    # Búsqueda: se alterna qué cuadro "ve" el móvil como haría YOLO.
-    llamadas = {"n": 0}
-
+    # YOLO simulado: "ve" el móvil si el recorte contiene entero el rectángulo con dibujo.
     def det_busqueda(recorte):
-        llamadas["n"] += 1
-        segundo = llamadas["n"] % 2 == 0
-        return [("cell phone", 0.8, (360, 380, 410, 460))] if segundo and sitio["ahi"] else []
+        ys, xs = np.nonzero((recorte != 90).any(axis=2))
+        if len(xs) == 0 or xs.min() == 0 or ys.min() == 0 \
+                or xs.max() == recorte.shape[1] - 1 or ys.max() == recorte.shape[0] - 1:
+            return []
+        return [("cell phone", 0.6, (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))]
 
     v = VigilanteMovil(det_busqueda, activo=True)
     assert v.estado == SitioMovil.BUSCANDO
-    for _ in range(5):
+    for _ in range(3):
         v.buscar(frame)
     assert v.estado == SitioMovil.EN_SU_SITIO, v.estado
     assert tuple(round(c) for c in v.recuadro) == real and v.plantilla.shape[0] == 104
@@ -124,6 +126,13 @@ def prueba_movil_aparcado():
     for _ in range(30):
         v.buscar(frame)
     assert v.estado == SitioMovil.NO_ENCONTRADO and not v.vigilando
+    # Entonces se puede marcar a mano, y se vigila comparando con la imagen.
+    v.marcar_a_mano(frame, real)
+    assert v.estado == SitioMovil.EN_SU_SITIO
+    v.comprobar(sin_movil); v.comprobar(sin_movil)
+    assert v.estado == SitioMovil.FUERA
+    v.buscar_de_nuevo()
+    assert v.estado == SitioMovil.BUSCANDO and v.recuadro is None
 
     # Clasificación con el móvil aparcado.
     cara, mano = (100, 100, 200, 200), (300, 300, 380, 380)

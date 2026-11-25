@@ -54,9 +54,11 @@ MIN_PINZA = 0.25                 # distancia pulgar-índice / tamaño de la palm
 
 # --- Móvil aparcado (idea de la profesora, ver aparcado.py) -----------------
 # Al empezar, el móvil se deja a la vista y se localiza; luego se vigila su sitio.
-UMBRAL_APARCADO = 0.40          # puntuación de YOLO para aceptar el móvil sobre la mesa
-VECES_PARA_APARCAR = 5          # tiene que verse en el mismo sitio estas veces...
-INTENTOS_BUSCAR_APARCADO = 25   # ...en como mucho estos análisis (unos 5 s)
+UMBRAL_APARCADO = 0.30          # puntuación de YOLO para aceptar el móvil sobre la mesa
+VECES_PARA_APARCAR = 3          # tiene que verse en el mismo sitio estas veces...
+INTENTOS_BUSCAR_APARCADO = 30   # ...en como mucho estos análisis (unos 10-15 s)
+LADO_BUSQUEDA_APARCADO = 320    # al buscarlo, la imagen se recorre en cuadros de este lado
+# Si aun así no lo encuentra, en la prueba de cámara se puede marcar a mano (tecla M).
 PERIODO_APARCADO_S = 1.0        # cada cuánto se comprueba el sitio
 HOLGURA_APARCADO = 0.25         # cuánto se puede haber movido sin contar como "fuera"
 SIMILITUD_APARCADO = 0.60       # parecido mínimo con la imagen guardada al empezar
