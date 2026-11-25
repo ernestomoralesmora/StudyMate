@@ -3,16 +3,16 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QPlainTextEdit,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit,
+                               QPlainTextEdit,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import ErrorApuntes, leer_archivo, unir
-from studymate.llm.cuestionario import (NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion,
-                                        cargar_perfil, guardar_perfil)
+from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion
 
 from ..comun import Pagina, boton, etiqueta, tarjeta
-from ..dialogo_asignatura import DialogoAsignatura
+from ..zoo_widget import AnimalIcono
 
 
 def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
@@ -33,16 +33,28 @@ def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
 class PantallaCuestionario(Pagina):
     def __init__(self, ventana):
         super().__init__(ventana)
-        # Asignatura: elige cuál de los recintos del zoo cambiará al terminar.
-        self.asignatura = QComboBox()
-        self.asignatura.setMinimumWidth(320)
-        nueva = boton("Añadir una asignatura…", None, self._nueva_asignatura)
-        fila_asignatura = QHBoxLayout()
-        fila_asignatura.setContentsMargins(0, 0, 0, 0)
-        fila_asignatura.addWidget(self.asignatura, 1)
-        fila_asignatura.addWidget(nueva)
-        caja_asignatura = QWidget()
-        caja_asignatura.setLayout(fila_asignatura)
+        # Temas de ESTA asignatura (se marcan los de hoy) y añadir uno nuevo.
+        self.casillas_temas: list[QCheckBox] = []
+        self.caja_temas = QWidget()
+        self.capa_temas = QVBoxLayout(self.caja_temas)
+        self.capa_temas.setContentsMargins(0, 0, 0, 0)
+        self.capa_temas.setSpacing(6)
+        self.nuevo_tema = QLineEdit()
+        self.nuevo_tema.setPlaceholderText("Nuevo tema de esta asignatura")
+        self.nuevo_tema.setMaxLength(80)
+        self.nuevo_tema.returnPressed.connect(self._anadir_tema)
+        fila_tema = QHBoxLayout()
+        fila_tema.setContentsMargins(0, 0, 0, 0)
+        fila_tema.addWidget(self.nuevo_tema, 1)
+        fila_tema.addWidget(boton("Añadir tema", None, self._anadir_tema))
+        self.error_tema = etiqueta("", "error")
+        caja_temas_total = QWidget()
+        capa_total = QVBoxLayout(caja_temas_total)
+        capa_total.setContentsMargins(0, 0, 0, 0)
+        capa_total.setSpacing(8)
+        capa_total.addWidget(self.caja_temas)
+        capa_total.addLayout(fila_tema)
+        capa_total.addWidget(self.error_tema)
         self.tiempo = QSpinBox()
         self.tiempo.setRange(10, 480)
         self.tiempo.setSingleStep(5)
@@ -54,9 +66,6 @@ class PantallaCuestionario(Pagina):
         self.cansancio = QComboBox()
         for k, v in NIVELES_CANSANCIO.items():
             self.cansancio.addItem(f"{k} · {v}", k)
-        self.temas = QPlainTextEdit()
-        self.temas.setPlaceholderText("Un tema por línea, por ejemplo:\nTema 3: Interacción\nTema 4: Prototipado")
-        self.temas.setFixedHeight(96)
         self.conocimiento = QComboBox()
         for k, v in NIVELES_CONOCIMIENTO.items():
             self.conocimiento.addItem(f"{k} · {v}", k)
@@ -97,13 +106,12 @@ class PantallaCuestionario(Pagina):
         self.error = etiqueta("", "error")
 
         formulario = tarjeta(
-            _pregunta("¿Qué asignatura vas a estudiar?", caja_asignatura,
-                      "Al terminar, cambiará el recinto de esta asignatura en tu zoo."),
+            _pregunta("¿Qué temas vas a estudiar hoy?", caja_temas_total,
+                      "Son los temas de esta asignatura. Los que añadas se quedan guardados en ella."),
             _pregunta("¿Cuánto tiempo tienes hoy para estudiar?", self.tiempo),
             _pregunta("¿Cuántos minutos seguidos sueles aguantar concentrado?", self.concentracion,
                       "Con esto se decide lo largo que es cada bloque."),
             _pregunta("¿Cómo de cansado estás?", self.cansancio),
-            _pregunta("¿Qué vas a estudiar?", self.temas),
             _pregunta("¿Cuánto sabes ya del tema?", self.conocimiento),
             _pregunta("¿Necesitas alguno de estos para estudiar?", dispositivos,
                       "Lo que marques aquí no pausará el tiempo aunque lo uses."),
@@ -128,7 +136,7 @@ class PantallaCuestionario(Pagina):
         desplazable.setWidget(contenido)
 
         botones = QHBoxLayout()
-        botones.addWidget(boton("Volver", None, lambda: ventana.ir("inicio")))
+        botones.addWidget(boton("Elegir otra asignatura", None, lambda: ventana.ir("elegir")))
         botones.addStretch()
         self.siguiente = boton("Crear mi plan", "primario", self._enviar)
         botones.addWidget(self.siguiente)
@@ -136,8 +144,17 @@ class PantallaCuestionario(Pagina):
         capa = QVBoxLayout(self)
         capa.setContentsMargins(28, 24, 28, 24)
         capa.setSpacing(14)
-        capa.addWidget(etiqueta("Antes de empezar", "titulo"))
-        capa.addWidget(etiqueta("Unas preguntas rápidas para adaptar la sesión a cómo estás hoy.", "subtitulo"))
+        self.icono = AnimalIcono("pez", 56)
+        self.titulo = etiqueta("", "titulo")
+        self.titulo.setTextFormat(Qt.PlainText)
+        cabecera = QHBoxLayout()
+        cabecera.addWidget(self.icono)
+        textos = QVBoxLayout()
+        textos.addWidget(self.titulo)
+        textos.addWidget(etiqueta("Unas preguntas rápidas para adaptar esta sesión a cómo estás hoy.",
+                                  "subtitulo"))
+        cabecera.addLayout(textos, 1)
+        capa.addLayout(cabecera)
         capa.addWidget(desplazable, 1)
         capa.addWidget(self.error)
         capa.addLayout(botones)
@@ -184,46 +201,72 @@ class PantallaCuestionario(Pagina):
         if self.permitir_movil.isChecked():
             self.a_la_vista.setChecked(False)
 
-    def _rellenar_asignaturas(self, elegida: str | None = None) -> None:
-        zoo = z.cargar()
-        self.asignatura.clear()
-        for r in zoo.recintos:
-            self.asignatura.addItem(f"{r.asignatura}  ·  {r.animal.nombre.lower()}", r.asignatura)
-        if not zoo.recintos:
-            self.asignatura.addItem("Primero añade una asignatura", "")
-        indice = self.asignatura.findData(elegida) if elegida else -1
-        self.asignatura.setCurrentIndex(max(0, indice))
+    # --- Temas -------------------------------------------------------------------------
+    def _recinto(self) -> z.Recinto | None:
+        return z.cargar(self.ventana.carpeta).recinto(self.ventana.asignatura)
 
-    def _nueva_asignatura(self) -> None:
-        dialogo = DialogoAsignatura(z.cargar(), self)
-        if dialogo.exec() and dialogo.recinto is not None:
-            self._rellenar_asignaturas(dialogo.recinto.asignatura)
+    def _mostrar_temas(self, marcados: set[str]) -> None:
+        while self.capa_temas.count():
+            item = self.capa_temas.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.casillas_temas = []
+        recinto = self._recinto()
+        temas = recinto.temas if recinto else []
+        if not temas:
+            self.capa_temas.addWidget(etiqueta("Esta asignatura aún no tiene temas: añade al menos uno.", "nota"))
+        for tema in temas:
+            casilla = QCheckBox(tema)
+            casilla.setChecked(tema in marcados)
+            self.casillas_temas.append(casilla)
+            self.capa_temas.addWidget(casilla)
+
+    def _anadir_tema(self) -> None:
+        zoo = z.cargar(self.ventana.carpeta)
+        recinto = zoo.recinto(self.ventana.asignatura)
+        try:
+            tema = recinto.anadir_tema(self.nuevo_tema.text())
+        except z.ErrorZoo as error:
+            self.error_tema.setText(str(error))
+            return
+        z.guardar(zoo, self.ventana.carpeta)
+        marcados = {c.text() for c in self.casillas_temas if c.isChecked()} | {tema}
+        self.nuevo_tema.clear()
+        self.error_tema.setText("")
+        self._mostrar_temas(marcados)
 
     def al_mostrar(self) -> None:
-        anterior = cargar_perfil()
-        self._rellenar_asignaturas(anterior.asignatura if anterior else None)
-        self.tiempo.setValue(anterior.tiempo_disponible_min if anterior else 60)
-        self.concentracion.setValue(anterior.concentracion_min if anterior else 25)
-        self.cansancio.setCurrentIndex((anterior.cansancio if anterior else 2) - 1)
-        self.temas.setPlainText("\n".join(anterior.temas) if anterior else "")
-        self.conocimiento.setCurrentIndex((anterior.conocimiento_previo if anterior else 2) - 1)
-        permitidos = anterior.dispositivos_permitidos if anterior else []
+        recinto = self._recinto()
+        self.icono.set_especie(recinto.especie)
+        self.titulo.setText(f"Estudiar {recinto.asignatura}")
+        # Se proponen las respuestas de la última sesión de ESTA asignatura.
+        u = recinto.ultimo_cuestionario
+        self._mostrar_temas(set(u.get("temas", [])) or (set(recinto.temas[:1])))
+        self.tiempo.setValue(u.get("tiempo_disponible_min", 60))
+        self.concentracion.setValue(u.get("concentracion_min", 25))
+        self.cansancio.setCurrentIndex(u.get("cansancio", 2) - 1)
+        self.conocimiento.setCurrentIndex(u.get("conocimiento_previo", 2) - 1)
+        permitidos = u.get("dispositivos_permitidos", [])
         self.permitir_movil.setChecked("movil" in permitidos)
         self.permitir_tablet.setChecked("tablet" in permitidos)
-        self.a_la_vista.setChecked(anterior.movil_a_la_vista if anterior else True)
+        self.a_la_vista.setChecked(u.get("movil_a_la_vista", True))
         self._actualizar_a_la_vista()
-        self.con_test.setChecked(anterior.con_test if anterior else True)
+        self.con_test.setChecked(u.get("con_test", True))
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
+        self.archivos = []
+        self.apuntes.clear()
         self._mostrar_archivos()
+        self.nuevo_tema.clear()
+        self.error_tema.setText("")
         self.error.setText("")
-        self.asignatura.setFocus()
+        self.tiempo.setFocus()
 
     def _enviar(self) -> None:
-        asignatura = self.asignatura.currentData()
-        if not asignatura:
-            self.error.setText("Elige la asignatura que vas a estudiar (o añade una con su animal).")
+        asignatura = self.ventana.asignatura
+        temas = [c.text() for c in self.casillas_temas if c.isChecked()]
+        if not temas:
+            self.error.setText("Marca al menos un tema de los que vas a estudiar hoy (o añade uno).")
             return
-        temas = [t.strip() for t in self.temas.toPlainText().replace(",", "\n").splitlines() if t.strip()]
         dispositivos = [d for d, c in (("movil", self.permitir_movil), ("tablet", self.permitir_tablet))
                         if c.isChecked()]
         try:
@@ -241,6 +284,15 @@ class PantallaCuestionario(Pagina):
         except ValueError as error:
             self.error.setText(str(error))
             return
-        guardar_perfil(perfil)
+        # Se guardan en la asignatura para proponerlas la próxima vez (cada asignatura las suyas).
+        zoo = z.cargar(self.ventana.carpeta)
+        zoo.recinto(asignatura).ultimo_cuestionario = {
+            "temas": temas, "tiempo_disponible_min": perfil.tiempo_disponible_min,
+            "concentracion_min": perfil.concentracion_min, "cansancio": perfil.cansancio,
+            "conocimiento_previo": perfil.conocimiento_previo,
+            "dispositivos_permitidos": perfil.dispositivos_permitidos,
+            "movil_a_la_vista": perfil.movil_a_la_vista, "con_test": perfil.con_test,
+        }
+        z.guardar(zoo, self.ventana.carpeta)
         self.ventana.cuestionario_listo(perfil, unir(self.apuntes.toPlainText(), self.archivos),
                                         self.modo_prueba.isChecked())

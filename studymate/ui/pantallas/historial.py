@@ -4,7 +4,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter
-from PySide6.QtWidgets import (QAbstractItemView, QGridLayout, QHBoxLayout, QHeaderView,
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QHBoxLayout, QHeaderView,
                                QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from studymate.sesion.historial import cargar_historial, estadisticas, minutos_por_dia
@@ -91,21 +91,45 @@ class PantallaHistorial(Pagina):
         self.tabla.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.vacio = etiqueta("Todavía no hay sesiones. ¡La primera te espera!", "subtitulo")
 
+        # Cada asignatura va por separado: se puede ver solo una.
+        self.filtro = QComboBox()
+        self.filtro.setMinimumWidth(280)
+        self.filtro.setAccessibleName("Asignatura")
+        self.filtro.currentIndexChanged.connect(self._pintar)
+        fila_filtro = QHBoxLayout()
+        fila_filtro.addWidget(etiqueta("Asignatura:", None, ajustar=False))
+        fila_filtro.addWidget(self.filtro)
+        fila_filtro.addStretch()
+
         fila = QHBoxLayout()
-        fila.addWidget(boton("Volver al panel principal", None, lambda: ventana.ir("inicio")))
+        fila.addWidget(boton("Volver al zoo", None, lambda: ventana.ir("inicio")))
         fila.addStretch()
 
         capa = QVBoxLayout(self)
         capa.setContentsMargins(28, 24, 28, 24)
         capa.setSpacing(16)
         capa.addWidget(etiqueta("Historial", "titulo"))
+        capa.addLayout(fila_filtro)
         capa.addLayout(arriba)
         capa.addWidget(self.vacio)
         capa.addWidget(self.tabla, 1)
         capa.addLayout(fila)
 
     def al_mostrar(self) -> None:
-        historial = cargar_historial()
+        todas = cargar_historial(self.ventana.carpeta)
+        asignaturas = sorted({r.asignatura for r in todas if r.asignatura})
+        self.filtro.blockSignals(True)
+        self.filtro.clear()
+        self.filtro.addItem("Todas", "")
+        for a in asignaturas:
+            self.filtro.addItem(a, a)
+        self.filtro.blockSignals(False)
+        self._pintar()
+
+    def _pintar(self) -> None:
+        elegida = self.filtro.currentData() or ""
+        historial = [r for r in cargar_historial(self.ventana.carpeta)
+                     if not elegida or r.asignatura == elegida]
         e = estadisticas(historial)
         for clave, cifra in self.cifras.items():
             valor = e[clave]

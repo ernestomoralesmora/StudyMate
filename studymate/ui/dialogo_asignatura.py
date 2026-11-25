@@ -1,8 +1,8 @@
 """Diálogo para añadir una asignatura al zoo y elegir su animal (uno por asignatura)."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLineEdit, QPushButton,
-                               QVBoxLayout)
+from PySide6.QtWidgets import (QDialog, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout, QLineEdit,
+                               QPlainTextEdit, QPushButton, QVBoxLayout)
 
 from studymate.gamificacion import zoo as z
 
@@ -43,9 +43,10 @@ class BotonAnimal(QPushButton):
 
 
 class DialogoAsignatura(QDialog):
-    def __init__(self, zoo: z.Zoo, parent=None):
+    def __init__(self, zoo: z.Zoo, carpeta, parent=None):
         super().__init__(parent)
         self.zoo = zoo
+        self.carpeta = carpeta
         self.recinto: z.Recinto | None = None
         self.setWindowTitle("Añadir una asignatura")
         self.setModal(True)
@@ -66,6 +67,12 @@ class DialogoAsignatura(QDialog):
             self.botones.append(b)
             rejilla.addWidget(b, i // 5, i % 5)
         self.habitat = etiqueta("", "nota")
+        self.temas = QPlainTextEdit()
+        self.temas.setPlaceholderText("Uno por línea (opcional; también se pueden añadir al estudiar)")
+        self.temas.setFixedHeight(84)
+        titulo_temas = etiqueta("Sus temas")
+        titulo_temas.setStyleSheet("font-weight: 600;")
+        titulo_temas.setBuddy(self.temas)
         self.error = etiqueta("", "error")
         self.aceptar = boton("Añadir al zoo", "primario", self._aceptar)
         fila = QHBoxLayout()
@@ -84,6 +91,8 @@ class DialogoAsignatura(QDialog):
         capa.addWidget(elige)
         capa.addLayout(rejilla)
         capa.addWidget(self.habitat)
+        capa.addWidget(titulo_temas)
+        capa.addWidget(self.temas)
         capa.addWidget(self.error)
         capa.addLayout(fila)
 
@@ -105,9 +114,10 @@ class DialogoAsignatura(QDialog):
 
     def _aceptar(self) -> None:
         try:
-            self.recinto = self.zoo.anadir(self.nombre.text(), self.especie)
+            temas = [t for t in self.temas.toPlainText().splitlines() if t.strip()]
+            self.recinto = self.zoo.anadir(self.nombre.text(), self.especie, temas)
         except z.ErrorZoo as error:
             self.error.setText(str(error))
             return
-        z.guardar(self.zoo)
+        z.guardar(self.zoo, self.carpeta)
         self.accept()

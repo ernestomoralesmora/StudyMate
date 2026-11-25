@@ -28,6 +28,7 @@ SALUD_INICIAL = 60
 CAMBIO_SALUD = {"muy_buena": 15, "regular": 0, "mala": -20}
 ANIMALES_POR_NIVEL = 3
 MAX_HISTORIAL = 100
+MAX_TEMAS = 40
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,9 @@ class Recinto:
     animales: int = 0
     racha_buenas: int = 0
     sesiones: list[dict] = field(default_factory=list)  # {fecha, calificacion, puntuacion, minutos}
+    temas: list[str] = field(default_factory=list)      # temas de la asignatura (los elige el estudiante)
+    # Respuestas del último cuestionario de ESTA asignatura (para proponerlas la próxima vez).
+    ultimo_cuestionario: dict = field(default_factory=dict)
 
     @property
     def animal(self) -> Animal:
@@ -85,14 +89,43 @@ class Recinto:
         nombre = self.animal.nombre.lower() if n == 1 else self.animal.plural
         return f"{n} de {MAX_ANIMALES} {nombre}"
 
+    def anadir_tema(self, tema: str) -> str:
+        tema = " ".join(tema.split())
+        if not tema:
+            raise ErrorZoo("Escribe el nombre del tema.")
+        if len(tema) > 80:
+            raise ErrorZoo("El nombre del tema es demasiado largo (máximo 80 letras).")
+        repetido = next((t for t in self.temas if t.casefold() == tema.casefold()), None)
+        if repetido:
+            raise ErrorZoo(f"«{repetido}» ya está en {self.asignatura}.")
+        if len(self.temas) >= MAX_TEMAS:
+            raise ErrorZoo(f"Como mucho {MAX_TEMAS} temas por asignatura.")
+        self.temas.append(tema)
+        return tema
+
+    def quitar_tema(self, tema: str) -> None:
+        self.temas = [t for t in self.temas if t != tema]
+
     def texto_racha(self) -> str:
         n = self.racha_buenas
         return f"{n} sesiones muy buenas seguidas" if n != 1 else "1 sesión muy buena seguida"
 
 
+NOMBRE_POR_DEFECTO = "Mi zoo"
+
+
 @dataclass
 class Zoo:
     recintos: list[Recinto] = field(default_factory=list)
+    nombre: str = NOMBRE_POR_DEFECTO
+
+    def renombrar(self, nombre: str) -> None:
+        nombre = " ".join(nombre.split())
+        if not nombre:
+            raise ErrorZoo("Escribe un nombre para tu zoo.")
+        if len(nombre) > 40:
+            raise ErrorZoo("El nombre del zoo es demasiado largo (máximo 40 letras).")
+        self.nombre = nombre
 
     # --- Asignaturas ------------------------------------------------------------------
     def recinto(self, asignatura: str) -> Recinto | None:
@@ -111,7 +144,7 @@ class Zoo:
         """Asignatura que ya tiene ese animal (o None)."""
         return next((r.asignatura for r in self.recintos if r.especie == especie), None)
 
-    def anadir(self, asignatura: str, especie: str) -> Recinto:
+    def anadir(self, asignatura: str, especie: str, temas: list[str] | None = None) -> Recinto:
         asignatura = " ".join(asignatura.split())
         if not asignatura:
             raise ErrorZoo("Escribe el nombre de la asignatura.")
@@ -126,6 +159,9 @@ class Zoo:
         if len(self.recintos) >= MAX_RECINTOS:
             raise ErrorZoo(f"El zoo tiene como mucho {MAX_RECINTOS} asignaturas (una por animal).")
         nuevo = Recinto(asignatura, especie)
+        for tema in temas or []:
+            if tema.strip() and not any(t.casefold() == " ".join(tema.split()).casefold() for t in nuevo.temas):
+                nuevo.anadir_tema(tema)
         self.recintos.append(nuevo)
         return nuevo
 
@@ -210,7 +246,7 @@ def cargar(carpeta: Path = CARPETA_DATOS) -> Zoo:
             validos = Recinto.__dataclass_fields__
             recintos = [Recinto(**{k: v for k, v in r.items() if k in validos})
                         for r in datos.get("recintos", []) if r.get("especie") in ANIMALES]
-            return Zoo(recintos[:MAX_RECINTOS])
+            return Zoo(recintos[:MAX_RECINTOS], datos.get("nombre") or NOMBRE_POR_DEFECTO)
         except (ValueError, TypeError, AttributeError):
             return Zoo()
     # Primera vez: si había pecera, pasa a ser el acuario de una asignatura "General".
@@ -225,6 +261,6 @@ def cargar(carpeta: Path = CARPETA_DATOS) -> Zoo:
 def guardar(zoo: Zoo, carpeta: Path = CARPETA_DATOS) -> Path:
     carpeta.mkdir(parents=True, exist_ok=True)
     ruta = carpeta / ARCHIVO
-    ruta.write_text(json.dumps({"recintos": [asdict(r) for r in zoo.recintos]},
+    ruta.write_text(json.dumps({"nombre": zoo.nombre, "recintos": [asdict(r) for r in zoo.recintos]},
                                ensure_ascii=False, indent=2), encoding="utf-8")
     return ruta

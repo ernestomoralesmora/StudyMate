@@ -37,10 +37,20 @@ Si PowerShell no deja activar el entorno, ejecuta antes
 python -m studymate.main
 ```
 
-Recorrido: **panel principal** (el zoo, un recinto por asignatura) → **cuestionario** → **plan** (con el asistente o,
-sin conexión, un plan básico) → **preparación** de 30 s (marcar el móvil con el ratón) →
-**sesión** por bloques (estudio → test → descanso) → **resumen** (nota, autocrítica y
-recinto de la asignatura) → panel principal. El **historial** se abre desde el panel principal.
+Recorrido:
+1. **Acceso:** entrar con usuario y contraseña o crear una cuenta. Cada usuario tiene su zoo y
+   sus datos en `studymate/data/usuarios/<usuario>/`. La contraseña no se guarda: solo su
+   huella (PBKDF2-SHA256 con sal). La primera cuenta se queda con los datos de antes.
+2. **La primera vez, crear el zoo:** su nombre (se puede cambiar luego) y las asignaturas,
+   cada una con su animal (uno distinto por asignatura) y, si se quiere, sus temas.
+3. **Zoo:** un recinto pequeño por asignatura con su avance.
+4. **Nueva sesión:** se elige el animal de la asignatura → **cuestionario de esa asignatura**
+   (sus temas, que se pueden ampliar; se proponen las respuestas de su última sesión) →
+   **plan** → **preparación** de 30 s (marcar el móvil) → **sesión** por bloques (estudio →
+   test → descanso) → **resumen** (nota, autocrítica y su recinto) → vuelta al zoo.
+
+Cada asignatura es independiente: sus temas, sus sesiones, su avance y sus animales solo
+cambian con sus propias sesiones. El **historial** se puede ver por asignatura.
 
 - En la sesión, el tiempo del bloque solo avanza mientras estudias. Si hay una duda,
   aparece una pregunta abajo: botones o teclas **S** / **N**.
@@ -53,12 +63,13 @@ recinto de la asignatura) → panel principal. El **historial** se abre desde el
   texto (un PDF escaneado, que es solo imagen, no sirve). Para el plan y para el test de cada
   bloque se manda al asistente solo la parte de los apuntes más relacionada con ese tema
   (`llm/apuntes.py`), porque un temario entero no cabe en una consulta.
-- Perfil, zoo e historial se guardan en `studymate/data/` (no se suben al repositorio).
+- Usuarios, zoo e historial se guardan en `studymate/data/` (no se suben al repositorio).
 
 Pruebas sin cámara ni ventana de la lógica de la sesión y el historial:
 
 ```powershell
 python -m studymate.sesion.pruebas.prueba_sesion
+python -m studymate.pruebas.prueba_usuarios
 ```
 
 ## Ejecutar la prueba de la cámara
@@ -286,6 +297,7 @@ python -m studymate.gamificacion.pruebas.prueba_zoo --svg recintos_svg
 ```
 studymate/
 ├── main.py              # arranca la interfaz
+├── usuarios.py          # registro e inicio de sesión (contraseña con PBKDF2), datos por usuario
 ├── vision/
 │   ├── config.py        # umbrales y constantes
 │   ├── camara.py        # captura con OpenCV
@@ -323,7 +335,8 @@ studymate/
 │   ├── zoo_widget.py    # un recinto del zoo animado y el icono de cada animal
 │   ├── dialogo_asignatura.py  # añadir una asignatura y elegir su animal
 │   ├── pintar.py        # pinta con QPainter las figuras de las escenas
-│   └── pantallas/       # inicio, cuestionario, plan, preparación, sesión, test,
-│                        # descanso, resumen e historial
+│   └── pantallas/       # acceso, bienvenida (crear el zoo), zoo, elegir asignatura,
+│                        # cuestionario, plan, preparación, sesión, test, descanso,
+│                        # resumen e historial
 └── data/                # perfil e historial (JSON, no se suben)
 ```

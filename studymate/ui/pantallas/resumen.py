@@ -62,7 +62,7 @@ class PantallaResumen(Pagina):
         desplazable.setWidgetResizable(True)
         desplazable.setWidget(contenido)
 
-        self.volver = boton("Volver al panel principal", "primario", lambda: ventana.ir("inicio"))
+        self.volver = boton("Volver al zoo", "primario", lambda: ventana.ir("inicio"))
         fila = QHBoxLayout()
         fila.addStretch()
         fila.addWidget(self.volver)

@@ -58,6 +58,19 @@ def main() -> None:
         otro.anadir(f"Asignatura {i}", especie)
     ok(len(otro.recintos) == 10 and not otro.especies_libres(), "caben 10 asignaturas, una por animal")
 
+    print("\nTemas de cada asignatura")
+    fis = otro.recinto("Asignatura 0")
+    fis.anadir_tema("  Cinemática ")
+    fis.anadir_tema("Dinámica")
+    ok(fis.temas == ["Cinemática", "Dinámica"], "se añaden temas a una asignatura")
+    falla(lambda: fis.anadir_tema("cinemática"), "no se repite un tema")
+    falla(lambda: fis.anadir_tema(" "), "hace falta el nombre del tema")
+    fis.quitar_tema("Cinemática")
+    ok(fis.temas == ["Dinámica"], "se puede quitar un tema")
+    con_temas = z.Zoo()
+    r_temas = con_temas.anadir("Química", "rana", ["Átomos", "", "átomos", "Enlaces"])
+    ok(r_temas.temas == ["Átomos", "Enlaces"], "al crear la asignatura se pueden dar sus temas")
+
     print("\nCrecer y decrecer")
     r = zoo.recinto("matemáticas")
     ok(r.salud == 60 and r.animales == 0 and r.nivel == 1, "un recinto nuevo empieza vacío, nivel 1")
@@ -92,8 +105,14 @@ def main() -> None:
         ok(migrado.recintos[0].asignatura == "General" and migrado.recintos[0].especie == "pez"
            and migrado.recintos[0].animales == 5 and migrado.recintos[0].salud == 85,
            "la pecera que había pasa a ser el acuario de «General»")
+        zoo.renombrar("  El zoo   de Lucía ")
+        falla(lambda: zoo.renombrar(" "), "el zoo necesita nombre")
+        zoo.recinto("Matemáticas").ultimo_cuestionario = {"tiempo_disponible_min": 90}
         z.guardar(zoo, carpeta)
-        ok(z.cargar(carpeta) == zoo, "se guarda y se carga igual (data/zoo.json)")
+        cargado = z.cargar(carpeta)
+        ok(cargado == zoo and cargado.nombre == "El zoo de Lucía", "se guarda y se carga igual, con su nombre")
+        ok(cargado.recinto("Diseño de Sistemas Interactivos").ultimo_cuestionario == {},
+           "el último cuestionario es de cada asignatura")
         (carpeta / z.ARCHIVO).write_text(json.dumps({"recintos": [{"asignatura": "X", "especie": "dragón"}]}))
         ok(z.cargar(carpeta).recintos == [], "ignora animales que no existen")
         (carpeta / z.ARCHIVO).write_text("{roto")

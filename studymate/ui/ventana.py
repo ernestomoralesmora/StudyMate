@@ -1,8 +1,12 @@
 """Ventana principal de StudyMate: une las pantallas y lleva la sesión.
 
-Recorrido:  panel principal → cuestionario → plan → preparación (30 s) →
-            [estudio → test → descanso] × bloques → resumen → panel principal
-            (y el historial desde el panel principal).
+Recorrido:  acceso (usuario y contraseña) → la primera vez, crear el zoo →
+            zoo → elegir el animal de la asignatura → cuestionario de esa asignatura →
+            plan → preparación (30 s) → [estudio → test → descanso] × bloques →
+            resumen → zoo   (y el historial desde el zoo).
+
+Cada usuario tiene su carpeta de datos (data/usuarios/<usuario>/) y, dentro de su
+zoo, cada asignatura guarda sus temas, sus sesiones y su avance por separado.
 
 La cámara la lleva MotorDeteccion en su propio hilo; la ventana solo lee su
 último resultado unas 20 veces por segundo (no espera nunca a la detección).
@@ -15,6 +19,7 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 
+from studymate import usuarios as us
 from studymate.gamificacion import pecera as pc
 from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import para_plan, para_test
@@ -28,7 +33,10 @@ from studymate.vision import config, modelos
 from studymate.vision.motor import MotorDeteccion
 
 from .comun import Trabajo
+from .pantallas.acceso import PantallaAcceso
+from .pantallas.bienvenida import PantallaBienvenida
 from .pantallas.cuestionario import PantallaCuestionario
+from .pantallas.elegir import PantallaElegir
 from .pantallas.descanso import PantallaDescanso
 from .pantallas.historial import PantallaHistorial
 from .pantallas.inicio import PantallaInicio
@@ -52,6 +60,9 @@ class VentanaPrincipal(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("StudyMate")
+        self.usuario: us.Usuario | None = None
+        self.carpeta = None           # carpeta de datos del usuario que ha entrado
+        self.asignatura = ""          # asignatura de la sesión (la del animal elegido)
         self.perfil: PerfilSesion | None = None
         self.apuntes = ""
         self.modo_prueba = False
@@ -66,6 +77,9 @@ class VentanaPrincipal(QMainWindow):
         self.pila = QStackedWidget()
         self.setCentralWidget(self.pila)
         self.paginas = {
+            "acceso": PantallaAcceso(self),
+            "bienvenida": PantallaBienvenida(self),
+            "elegir": PantallaElegir(self),
             "inicio": PantallaInicio(self),
             "cuestionario": PantallaCuestionario(self),
             "plan": PantallaPlan(self),
@@ -82,7 +96,7 @@ class VentanaPrincipal(QMainWindow):
         self.reloj = QTimer(self)
         self.reloj.setInterval(50)
         self.reloj.timeout.connect(self._tick)
-        self.ir("inicio")
+        self.ir("acceso")
 
     # --- Navegación -------------------------------------------------------------------
     def ir(self, nombre: str) -> None:
@@ -94,6 +108,28 @@ class VentanaPrincipal(QMainWindow):
         pagina.al_mostrar()
 
     def ir_cuestionario(self) -> None:
+        self.ir("elegir")
+
+    # --- Usuario ------------------------------------------------------------------------
+    def sesion_iniciada(self, usuario: us.Usuario) -> None:
+        self.usuario = usuario
+        self.carpeta = usuario.carpeta()
+        self.ultima_sesion = None
+        self.setWindowTitle(f"StudyMate · {usuario.nombre}")
+        # La primera vez (zoo sin asignaturas) se crea el zoo.
+        self.ir("inicio" if z.cargar(self.carpeta).recintos else "bienvenida")
+
+    def cerrar_sesion(self) -> None:
+        self._parar_motor()
+        self.usuario = self.carpeta = None
+        self.asignatura = ""
+        self.ultima_sesion = None
+        self.setWindowTitle("StudyMate")
+        self.ir("acceso")
+
+    def elegir_asignatura(self, asignatura: str) -> None:
+        """Al elegir el animal de una asignatura se abre su cuestionario."""
+        self.asignatura = asignatura
         self.ir("cuestionario")
 
     # --- Cuestionario y plan -----------------------------------------------------------
@@ -202,9 +238,9 @@ class VentanaPrincipal(QMainWindow):
         resumen = c.resumen()
         resultado = pc.calificar(resumen)
         asignatura = self.perfil.asignatura
-        zoo = z.cargar()
+        zoo = z.cargar(self.carpeta)
         cambios = z.aplicar_sesion(zoo, asignatura, resultado, minutos=resumen.estudiado_s / 60)
-        z.guardar(zoo)
+        z.guardar(zoo, self.carpeta)
         if resultado.cuenta:
             self.ultima_sesion = (asignatura, resultado)
         guardar_registro(RegistroSesion(
@@ -222,7 +258,7 @@ class VentanaPrincipal(QMainWindow):
             origen_plan=self.plan.origen,
             modo_prueba=self.modo_prueba,
             asignatura=asignatura,
-        ))
+        ), self.carpeta)
         self.ir("resumen")
         self.paginas["resumen"].mostrar(resultado, zoo.recinto(asignatura), cambios, c, c.terminada_antes)
 

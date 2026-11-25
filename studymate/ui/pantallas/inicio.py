@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QMessageBox, QProgressBar,
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QInputDialog, QMessageBox, QProgressBar,
                                QScrollArea, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
@@ -53,10 +53,14 @@ class BarrasAvance(QWidget):
         p.end()
 
 
+ANCHO_TARJETA = 300
+
+
 class TarjetaRecinto(QFrame):
-    def __init__(self, recinto: z.Recinto, al_quitar):
+    def __init__(self, recinto: z.Recinto, al_quitar, al_estudiar):
         super().__init__()
         self.setObjectName("tarjeta")
+        self.setFixedWidth(ANCHO_TARJETA)  # tamaño fijo: no se estiran aunque haya pocas
         r = recinto
         capa = QVBoxLayout(self)
         capa.setContentsMargins(0, 0, 0, 16)
@@ -75,10 +79,6 @@ class TarjetaRecinto(QFrame):
         textos.addWidget(nombre)
         textos.addWidget(etiqueta(f"{r.animal.habitat} · nivel {r.nivel} · {r.describir_animales()}", "nota"))
         cabecera.addLayout(textos, 1)
-        quitar = boton("Quitar", None, lambda: al_quitar(r))
-        quitar.setToolTip(f"Quitar {r.asignatura} del zoo")
-        quitar.setMinimumHeight(32)
-        cabecera.addWidget(quitar, 0, Qt.AlignTop)
         cuerpo.addLayout(cabecera)
 
         salud = QProgressBar()
@@ -101,6 +101,14 @@ class TarjetaRecinto(QFrame):
         fila_avance.addWidget(etiqueta(resumen, "nota", ajustar=False))
         cuerpo.addLayout(fila_avance)
         cuerpo.addWidget(BarrasAvance(r.sesiones))
+        acciones = QHBoxLayout()
+        estudiar = boton("Estudiar", "primario", lambda: al_estudiar(r.asignatura))
+        estudiar.setAccessibleName(f"Estudiar {r.asignatura}")
+        quitar = boton("Quitar", None, lambda: al_quitar(r))
+        quitar.setAccessibleName(f"Quitar {r.asignatura} del zoo")
+        acciones.addWidget(estudiar, 1)
+        acciones.addWidget(quitar)
+        cuerpo.addLayout(acciones)
         capa.addLayout(cuerpo)
 
 
@@ -111,11 +119,20 @@ class PantallaInicio(Pagina):
         self.companero = Companero("concentrado", lado_minimo=72)
         self.companero.setFixedSize(72, 72)
         titulos = QVBoxLayout()
-        titulos.addWidget(etiqueta("Mi zoo", "titulo"))
-        titulos.addWidget(etiqueta("Un animal por asignatura. Cada uno crece con tus sesiones de esa asignatura.",
-                                   "subtitulo"))
+        self.titulo = etiqueta("Mi zoo", "titulo")
+        self.titulo.setTextFormat(Qt.PlainText)
+        fila_titulo = QHBoxLayout()
+        fila_titulo.addWidget(self.titulo)
+        renombrar = boton("Cambiar el nombre", None, self._renombrar)
+        renombrar.setMinimumHeight(34)
+        fila_titulo.addWidget(renombrar)
+        fila_titulo.addStretch()
+        titulos.addLayout(fila_titulo)
+        self.subtitulo = etiqueta("", "subtitulo")
+        titulos.addWidget(self.subtitulo)
         cabecera.addWidget(self.companero)
         cabecera.addLayout(titulos, 1)
+        cabecera.addWidget(boton("Cerrar sesión", None, ventana.cerrar_sesion), 0, Qt.AlignTop)
 
         # Recintos (se rehacen cada vez que se muestra la pantalla).
         self.contenido = QWidget()
@@ -126,7 +143,7 @@ class PantallaInicio(Pagina):
         desplazable.setWidgetResizable(True)
         desplazable.setWidget(self.contenido)
 
-        self.empezar = boton("Empezar una sesión", "primario", ventana.ir_cuestionario)
+        self.empezar = boton("Nueva sesión de estudio", "primario", lambda: ventana.ir("elegir"))
         self.empezar.setMinimumHeight(56)
         self.mensaje = etiqueta("")
         acciones = tarjeta(self.mensaje, self.empezar,
@@ -170,10 +187,14 @@ class PantallaInicio(Pagina):
         capa.addLayout(cuerpo, 1)
 
     def al_mostrar(self) -> None:
-        zoo = z.cargar()
+        carpeta = self.ventana.carpeta
+        zoo = z.cargar(carpeta)
+        self.titulo.setText(zoo.nombre)
+        self.subtitulo.setText(f"Hola, {self.ventana.usuario.nombre.split()[0]}. Un animal por asignatura: "
+                               "cada uno crece con tus sesiones de esa asignatura.")
         self._pintar_recintos(zoo)
         self.mensaje.setText(z.mensaje(zoo))
-        e = estadisticas(cargar_historial())
+        e = estadisticas(cargar_historial(carpeta))
         self.cifras["asignaturas"].setText(f"{len(zoo.recintos)}/{z.MAX_RECINTOS}")
         self.cifras["animales"].setText(str(zoo.total_animales))
         self.cifras["semana"].setText(str(e["minutos_semana"]))
@@ -205,15 +226,47 @@ class PantallaInicio(Pagina):
                          "Cada recinto crecerá con tus sesiones de esa asignatura."),
                 boton("Añadir mi primera asignatura", "primario", self._anadir),
             )
+            self.tarjetas = []
             self.rejilla.addWidget(vacio, 0, 0)
             self.rejilla.setRowStretch(1, 1)
             return
-        for i, recinto in enumerate(zoo.recintos):
-            self.rejilla.addWidget(TarjetaRecinto(recinto, self._quitar), i // 2, i % 2)
-        self.rejilla.setRowStretch((len(zoo.recintos) + 1) // 2, 1)
+        self.tarjetas = [TarjetaRecinto(r, self._quitar, self.ventana.elegir_asignatura) for r in zoo.recintos]
+        self._recolocar()
+
+    def _recolocar(self) -> None:
+        """Tantas columnas como quepan; las tarjetas no cambian de tamaño."""
+        tarjetas = getattr(self, "tarjetas", [])
+        if not tarjetas:
+            return
+        for t in tarjetas:
+            self.rejilla.removeWidget(t)
+        columnas = max(1, (self.contenido.width() + 16) // (ANCHO_TARJETA + 16))
+        for i, t in enumerate(tarjetas):
+            self.rejilla.addWidget(t, i // columnas, i % columnas, Qt.AlignTop | Qt.AlignLeft)
+        for c in range(self.rejilla.columnCount()):
+            self.rejilla.setColumnStretch(c, 0)
+        self.rejilla.setColumnStretch(columnas, 1)
+        self.rejilla.setRowStretch((len(tarjetas) + columnas - 1) // columnas, 1)
+
+    def resizeEvent(self, evento):
+        super().resizeEvent(evento)
+        self._recolocar()
+
+    def _renombrar(self) -> None:
+        zoo = z.cargar(self.ventana.carpeta)
+        nombre, aceptado = QInputDialog.getText(self, "Nombre del zoo", "¿Cómo se llama tu zoo?", text=zoo.nombre)
+        if not aceptado:
+            return
+        try:
+            zoo.renombrar(nombre)
+        except z.ErrorZoo as error:
+            QMessageBox.warning(self, "Nombre del zoo", str(error))
+            return
+        z.guardar(zoo, self.ventana.carpeta)
+        self.titulo.setText(zoo.nombre)
 
     def _anadir(self) -> None:
-        dialogo = DialogoAsignatura(z.cargar(), self)
+        dialogo = DialogoAsignatura(z.cargar(self.ventana.carpeta), self.ventana.carpeta, self)
         if dialogo.exec():
             self.al_mostrar()
 
@@ -224,7 +277,7 @@ class PantallaInicio(Pagina):
             f"{recinto.animal.plural} y su avance. No se puede deshacer.",
         )
         if respuesta == QMessageBox.Yes:
-            zoo = z.cargar()
+            zoo = z.cargar(self.ventana.carpeta)
             zoo.quitar(recinto.asignatura)
-            z.guardar(zoo)
+            z.guardar(zoo, self.ventana.carpeta)
             self.al_mostrar()
