@@ -157,6 +157,33 @@ por defecto la siguiente vez.
 > COCO no distingue el móvil de la tablet. Si marcas cualquiera de los dos como permitido,
 > ninguno de los dos pausará el tiempo en esa sesión.
 
+## Gamificación: la pecera del panel principal
+
+La pecera **no cambia mientras se estudia**. Al terminar cada sesión, StudyMate la califica
+y la pecera del panel principal se actualiza:
+
+| Sesión | Cómo se decide | Qué pasa en la pecera |
+|---|---|---|
+| Muy buena | puntuación ≥ 80 | +15 de salud y llega un pez nuevo (un pez dorado cada 3 muy buenas seguidas). Limpia los peces muertos |
+| Regular | entre 50 y 79 | se queda igual |
+| Mala | < 50 | −20 de salud, un pez muere y queda flotando, el agua se ensucia |
+
+La puntuación parte del **porcentaje del tiempo previsto que se ha estudiado de verdad** y
+resta 8 puntos por cada vez que se coge el móvil y 4 por cada ausencia. El test, si se hace,
+suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Si se pasan más de 2 días
+sin estudiar, el agua se ensucia un poco (5 por día, como mucho 30). Todos los valores están
+al principio de `studymate/gamificacion/pecera.py`.
+
+La pecera se guarda en `studymate/data/pecera.json` (no se sube al repositorio).
+
+```powershell
+# Pruebas sin interfaz (y vistas previas en SVG)
+python -m studymate.gamificacion.pruebas.prueba_pecera --svg pecera_svg
+
+# Ventana de prueba con la pecera animada (usa una pecera de prueba; --real para la tuya)
+python -m studymate.ui.pruebas.prueba_pecera
+```
+
 ## Estructura
 
 ```
