@@ -6,11 +6,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QPlainTextEdit,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
+from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import ErrorApuntes, leer_archivo, unir
 from studymate.llm.cuestionario import (NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion,
                                         cargar_perfil, guardar_perfil)
 
 from ..comun import Pagina, boton, etiqueta, tarjeta
+from ..dialogo_asignatura import DialogoAsignatura
 
 
 def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
@@ -31,6 +33,16 @@ def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
 class PantallaCuestionario(Pagina):
     def __init__(self, ventana):
         super().__init__(ventana)
+        # Asignatura: elige cuál de los recintos del zoo cambiará al terminar.
+        self.asignatura = QComboBox()
+        self.asignatura.setMinimumWidth(320)
+        nueva = boton("Añadir una asignatura…", None, self._nueva_asignatura)
+        fila_asignatura = QHBoxLayout()
+        fila_asignatura.setContentsMargins(0, 0, 0, 0)
+        fila_asignatura.addWidget(self.asignatura, 1)
+        fila_asignatura.addWidget(nueva)
+        caja_asignatura = QWidget()
+        caja_asignatura.setLayout(fila_asignatura)
         self.tiempo = QSpinBox()
         self.tiempo.setRange(10, 480)
         self.tiempo.setSingleStep(5)
@@ -85,6 +97,8 @@ class PantallaCuestionario(Pagina):
         self.error = etiqueta("", "error")
 
         formulario = tarjeta(
+            _pregunta("¿Qué asignatura vas a estudiar?", caja_asignatura,
+                      "Al terminar, cambiará el recinto de esta asignatura en tu zoo."),
             _pregunta("¿Cuánto tiempo tienes hoy para estudiar?", self.tiempo),
             _pregunta("¿Cuántos minutos seguidos sueles aguantar concentrado?", self.concentracion,
                       "Con esto se decide lo largo que es cada bloque."),
@@ -170,8 +184,24 @@ class PantallaCuestionario(Pagina):
         if self.permitir_movil.isChecked():
             self.a_la_vista.setChecked(False)
 
+    def _rellenar_asignaturas(self, elegida: str | None = None) -> None:
+        zoo = z.cargar()
+        self.asignatura.clear()
+        for r in zoo.recintos:
+            self.asignatura.addItem(f"{r.asignatura}  ·  {r.animal.nombre.lower()}", r.asignatura)
+        if not zoo.recintos:
+            self.asignatura.addItem("Primero añade una asignatura", "")
+        indice = self.asignatura.findData(elegida) if elegida else -1
+        self.asignatura.setCurrentIndex(max(0, indice))
+
+    def _nueva_asignatura(self) -> None:
+        dialogo = DialogoAsignatura(z.cargar(), self)
+        if dialogo.exec() and dialogo.recinto is not None:
+            self._rellenar_asignaturas(dialogo.recinto.asignatura)
+
     def al_mostrar(self) -> None:
         anterior = cargar_perfil()
+        self._rellenar_asignaturas(anterior.asignatura if anterior else None)
         self.tiempo.setValue(anterior.tiempo_disponible_min if anterior else 60)
         self.concentracion.setValue(anterior.concentracion_min if anterior else 25)
         self.cansancio.setCurrentIndex((anterior.cansancio if anterior else 2) - 1)
@@ -186,9 +216,13 @@ class PantallaCuestionario(Pagina):
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
         self._mostrar_archivos()
         self.error.setText("")
-        self.tiempo.setFocus()
+        self.asignatura.setFocus()
 
     def _enviar(self) -> None:
+        asignatura = self.asignatura.currentData()
+        if not asignatura:
+            self.error.setText("Elige la asignatura que vas a estudiar (o añade una con su animal).")
+            return
         temas = [t.strip() for t in self.temas.toPlainText().replace(",", "\n").splitlines() if t.strip()]
         dispositivos = [d for d, c in (("movil", self.permitir_movil), ("tablet", self.permitir_tablet))
                         if c.isChecked()]
@@ -202,6 +236,7 @@ class PantallaCuestionario(Pagina):
                 dispositivos_permitidos=dispositivos,
                 con_test=self.con_test.isChecked(),
                 movil_a_la_vista=self.a_la_vista.isChecked() and "movil" not in dispositivos,
+                asignatura=asignatura,
             )
         except ValueError as error:
             self.error.setText(str(error))

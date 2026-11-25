@@ -186,6 +186,8 @@ def _peticion(perfil: PerfilSesion, apuntes: str | None, errores: list[str] | No
         f"- Conocimiento previo: {NIVELES_CONOCIMIENTO[perfil.conocimiento_previo]}\n"
         f"- Temas: {'; '.join(perfil.temas)}\n"
     )
+    if perfil.asignatura:
+        texto += f"- Asignatura: {perfil.asignatura}\n"
     if apuntes and apuntes.strip():
         texto += f"\nAPUNTES (para fijar los objetivos):\n\"\"\"\n{apuntes.strip()[:6000]}\n\"\"\"\n"
     if errores:

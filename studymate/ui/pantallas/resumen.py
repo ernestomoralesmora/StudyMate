@@ -4,11 +4,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
 from studymate.gamificacion import pecera as pc
+from studymate.gamificacion import zoo as z
 
 from .. import estilo
 from ..comun import Pagina, boton, etiqueta, minutos, tarjeta
 from ..companero import Companero
-from ..pecera_widget import PeceraWidget
+from ..zoo_widget import RecintoWidget
 
 
 def _lista(lineas: list[str]) -> str:
@@ -45,10 +46,11 @@ class PantallaResumen(Pagina):
                               etiqueta("QUÉ HA IDO BIEN", "seccion"), self.bien,
                               etiqueta("QUÉ PUEDO MEJORAR", "seccion"), self.mejorar)
 
-        self.pecera = PeceraWidget(pc.cargar())
-        self.pecera.setMinimumSize(420, 245)
+        self.titulo_recinto = etiqueta("TU ZOO", "seccion")
+        self.recinto = RecintoWidget(z.Recinto("—", "pez"))
+        self.recinto.setMinimumSize(420, 236)
         self.cambios = etiqueta("")
-        caja_pecera = tarjeta(etiqueta("TU PECERA", "seccion"), self.pecera, self.cambios)
+        caja_pecera = tarjeta(self.titulo_recinto, self.recinto, self.cambios)
 
         contenido = QWidget()
         cuerpo = QHBoxLayout(contenido)
@@ -72,7 +74,7 @@ class PantallaResumen(Pagina):
         capa.addWidget(desplazable, 1)
         capa.addLayout(fila)
 
-    def mostrar(self, resultado: pc.ResultadoCalificacion, estado: pc.EstadoPecera,
+    def mostrar(self, resultado: pc.ResultadoCalificacion, recinto: z.Recinto | None,
                 cambios: list[str], controlador, terminada_antes: bool) -> None:
         c = controlador
         escala = 60.0 / c.segundos_por_minuto  # en modo prueba, minutos "del plan"
@@ -96,6 +98,14 @@ class PantallaResumen(Pagina):
         self.motivos.setText(" ".join(resultado.motivos))
         self.bien.setText(_lista(resultado.bien) if resultado.bien else "—")
         self.mejorar.setText(_lista(resultado.mejorar) if resultado.mejorar else "¡Nada! Sigue así.")
-        self.pecera.set_estado(estado)
-        self.cambios.setText(_lista(cambios) + "\n\n" + pc.texto_racha(estado))
+        if recinto is not None:
+            self.recinto.show()
+            self.recinto.set_recinto(recinto)
+            self.titulo_recinto.setText(f"RECINTO DE {recinto.asignatura.upper()} · NIVEL {recinto.nivel}")
+            racha = f"Racha: {recinto.texto_racha()}." if recinto.racha_buenas else ""
+            self.cambios.setText(_lista(cambios) + ("\n\n" + racha if racha else ""))
+        else:
+            self.recinto.hide()
+            self.titulo_recinto.setText("TU ZOO")
+            self.cambios.setText(_lista(cambios))
         self.volver.setFocus()

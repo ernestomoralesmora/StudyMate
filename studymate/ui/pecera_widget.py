@@ -10,20 +10,16 @@ Uso:
 
 import time
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
-from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from studymate.gamificacion.escena import ALTO, ANCHO, construir_escena
 from studymate.gamificacion.pecera import EstadoPecera
 
+from .pintar import pintar_escena
+
 FPS = 30
-
-
-def _color(hex_, alfa=1.0):
-    c = QColor(hex_)
-    c.setAlphaF(max(0.0, min(1.0, alfa)))
-    return c
 
 
 class PeceraWidget(QWidget):
@@ -64,49 +60,5 @@ class PeceraWidget(QWidget):
         figuras = construir_escena(self._estado, t)
 
         p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        # Escalar la escena lógica al tamaño del widget manteniendo la proporción.
-        escala = min(self.width() / ANCHO, self.height() / ALTO)
-        dx = (self.width() - ANCHO * escala) / 2
-        dy = (self.height() - ALTO * escala) / 2
-        p.translate(dx, dy)
-        p.scale(escala, escala)
-
-        recorte = QPainterPath()
-        recorte.addRoundedRect(QRectF(0, 0, ANCHO, ALTO), 26, 26)
-        p.setClipPath(recorte)
-
-        for f in figuras:
-            alfa = f.get("alfa", 1.0)
-            tipo = f["tipo"]
-            if tipo == "degradado":
-                g = QLinearGradient(0, f["y"], 0, f["y"] + f["h"])
-                g.setColorAt(0, _color(f["arriba"]))
-                g.setColorAt(1, _color(f["abajo"]))
-                p.setPen(Qt.NoPen)
-                p.setBrush(QBrush(g))
-                p.drawRect(QRectF(f["x"], f["y"], f["w"], f["h"]))
-            elif tipo == "rect":
-                p.setPen(Qt.NoPen)
-                p.setBrush(_color(f["relleno"], alfa))
-                p.drawRect(QRectF(f["x"], f["y"], f["w"], f["h"]))
-            elif tipo == "elipse":
-                p.setPen(Qt.NoPen)
-                p.setBrush(_color(f["relleno"], alfa))
-                p.drawEllipse(QPointF(f["cx"], f["cy"]), f["rx"], f["ry"])
-            elif tipo == "circulo_borde":
-                p.setPen(QPen(_color(f["color"], alfa), 2))
-                p.setBrush(Qt.NoBrush)
-                p.drawEllipse(QPointF(f["cx"], f["cy"]), f["r"], f["r"])
-            elif tipo == "poligono":
-                p.setPen(Qt.NoPen)
-                p.setBrush(_color(f["relleno"], alfa))
-                p.drawPolygon(QPolygonF([QPointF(x, y) for x, y in f["puntos"]]))
-            elif tipo == "linea":
-                lapiz = QPen(_color(f["color"], alfa), f["grosor"])
-                lapiz.setCapStyle(Qt.RoundCap)
-                lapiz.setJoinStyle(Qt.RoundJoin)
-                p.setPen(lapiz)
-                p.setBrush(Qt.NoBrush)
-                p.drawPolyline(QPolygonF([QPointF(x, y) for x, y in f["puntos"]]))
+        pintar_escena(p, figuras, self.width(), self.height(), ANCHO, ALTO, radio=26)
         p.end()

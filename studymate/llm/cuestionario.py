@@ -48,6 +48,8 @@ class PerfilSesion:
     conocimiento_previo: int = 2  # 1 (nada) a 5 (solo repasar)
     dispositivos_permitidos: list[str] = field(default_factory=list)  # claves de DISPOSITIVOS
     con_test: bool = True  # test al final de cada bloque (se puede desactivar)
+    # Asignatura de la sesión: su recinto del zoo es el que cambia al terminar.
+    asignatura: str = ""
     # Deja el móvil sobre la mesa a la vista de la cámara (se vigila su sitio).
     # False si lo tiene guardado (mochila, otra habitación): solo se vigila la mano.
     movil_a_la_vista: bool = True

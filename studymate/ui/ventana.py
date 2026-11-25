@@ -16,6 +16,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 
 from studymate.gamificacion import pecera as pc
+from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import para_plan, para_test
 from studymate.llm.cliente_groq import consultar_groq
 from studymate.llm.cuestionario import PerfilSesion
@@ -57,7 +58,8 @@ class VentanaPrincipal(QMainWindow):
         self.plan: Plan | None = None
         self.motor: MotorDeteccion | None = None
         self.controlador: ControladorSesion | None = None
-        self.ultimo_resultado: pc.ResultadoCalificacion | None = None
+        # (asignatura, resultado) de la última sesión, para el panel principal.
+        self.ultima_sesion: tuple[str, pc.ResultadoCalificacion] | None = None
         self._preguntas: dict[int, tuple[str, object]] = {}
         self._trabajos: list[Trabajo] = []
 
@@ -199,11 +201,12 @@ class VentanaPrincipal(QMainWindow):
         self._parar_motor()
         resumen = c.resumen()
         resultado = pc.calificar(resumen)
-        estado = pc.cargar()
-        cambios = pc.aplicar_sesion(estado, resultado)
-        pc.guardar(estado)
+        asignatura = self.perfil.asignatura
+        zoo = z.cargar()
+        cambios = z.aplicar_sesion(zoo, asignatura, resultado, minutos=resumen.estudiado_s / 60)
+        z.guardar(zoo)
         if resultado.cuenta:
-            self.ultimo_resultado = resultado
+            self.ultima_sesion = (asignatura, resultado)
         guardar_registro(RegistroSesion(
             temas=[b.tema for b in self.plan.bloques],
             planificado_min=round(resumen.planificado_s / 60, 1),
@@ -218,9 +221,10 @@ class VentanaPrincipal(QMainWindow):
             test_total=c.test_total or None,
             origen_plan=self.plan.origen,
             modo_prueba=self.modo_prueba,
+            asignatura=asignatura,
         ))
         self.ir("resumen")
-        self.paginas["resumen"].mostrar(resultado, estado, cambios, c, c.terminada_antes)
+        self.paginas["resumen"].mostrar(resultado, zoo.recinto(asignatura), cambios, c, c.terminada_antes)
 
     # --- Preguntas del test (se piden al empezar cada bloque) -----------------------------
     def _preparar_test(self, indice: int) -> None:

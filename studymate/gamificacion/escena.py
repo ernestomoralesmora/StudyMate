@@ -124,10 +124,15 @@ def construir_escena(estado: EstadoPecera, t: float = 0.0) -> list[dict]:
     return figuras
 
 
-def escena_a_svg(figuras: list[dict], ancho: int = ANCHO, alto: int = ALTO) -> str:
-    """Convierte la escena a SVG (para pruebas y para el portfolio)."""
-    partes = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{ancho}" height="{alto}" viewBox="0 0 {ANCHO} {ALTO}">',
-              f'<clipPath id="c"><rect width="{ANCHO}" height="{ALTO}" rx="26"/></clipPath><g clip-path="url(#c)">']
+def escena_a_svg(figuras: list[dict], ancho: int = ANCHO, alto: int = ALTO,
+                 vista: tuple[int, int] = (ANCHO, ALTO), radio: int = 26) -> str:
+    """Convierte la escena a SVG (para pruebas y para el portfolio).
+
+    `vista` es el tamaño lógico de la escena (la pecera, 720x420; un recinto del zoo, 480x270).
+    """
+    vw, vh = vista
+    partes = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{ancho}" height="{alto}" viewBox="0 0 {vw} {vh}">',
+              f'<clipPath id="c"><rect width="{vw}" height="{vh}" rx="{radio}"/></clipPath><g clip-path="url(#c)">']
     for n, f in enumerate(figuras):
         alfa = f.get("alfa", 1)
         op = f' opacity="{alfa:.3f}"' if alfa < 1 else ""

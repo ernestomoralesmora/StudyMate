@@ -60,7 +60,7 @@ class GraficaSemana(QWidget):
 
 
 class PantallaHistorial(Pagina):
-    COLUMNAS = ["Fecha", "Temas", "Estudiado", "Previsto", "Nota", "Test", "Móvil", "Ausencias"]
+    COLUMNAS = ["Fecha", "Asignatura", "Temas", "Estudiado", "Previsto", "Nota", "Test", "Móvil", "Ausencias"]
 
     def __init__(self, ventana):
         super().__init__(ventana)
@@ -88,7 +88,7 @@ class PantallaHistorial(Pagina):
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tabla.setShowGrid(False)
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.tabla.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.vacio = etiqueta("Todavía no hay sesiones. ¡La primera te espera!", "subtitulo")
 
         fila = QHBoxLayout()
@@ -119,6 +119,7 @@ class PantallaHistorial(Pagina):
             fecha = datetime.fromisoformat(r.fecha).strftime("%d/%m/%Y %H:%M")
             valores = [
                 fecha + ("  (prueba)" if r.modo_prueba else ""),
+                r.asignatura or "—",
                 ", ".join(r.temas),
                 f"{round(r.estudiado_min)} min",
                 f"{round(r.planificado_min)} min",
@@ -129,6 +130,6 @@ class PantallaHistorial(Pagina):
             ]
             for col, texto in enumerate(valores):
                 item = QTableWidgetItem(texto)
-                if col == 4:
+                if col == 5:
                     item.setForeground(QColor(estilo.COLOR_CALIFICACION.get(r.calificacion, estilo.TEXTO)))
                 self.tabla.setItem(fila, col, item)

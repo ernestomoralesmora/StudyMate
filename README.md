@@ -37,23 +37,23 @@ Si PowerShell no deja activar el entorno, ejecuta antes
 python -m studymate.main
 ```
 
-Recorrido: **panel principal** (pecera) → **cuestionario** → **plan** (con el asistente o,
+Recorrido: **panel principal** (el zoo, un recinto por asignatura) → **cuestionario** → **plan** (con el asistente o,
 sin conexión, un plan básico) → **preparación** de 30 s (marcar el móvil con el ratón) →
 **sesión** por bloques (estudio → test → descanso) → **resumen** (nota, autocrítica y
-pecera) → panel principal. El **historial** se abre desde el panel principal.
+recinto de la asignatura) → panel principal. El **historial** se abre desde el panel principal.
 
 - En la sesión, el tiempo del bloque solo avanza mientras estudias. Si hay una duda,
   aparece una pregunta abajo: botones o teclas **S** / **N**.
 - El test se responde con el ratón o con **A**, **B** y **C**; **Enter** pasa a la siguiente.
 - Para probarlo todo en poco tiempo, marca en el cuestionario **Modo prueba**: cada minuto
   del plan dura 10 s. Las sesiones de prueba salen en el historial marcadas, pero no cuentan
-  en los totales (la pecera sí cambia).
+  en los totales (el zoo sí cambia).
 - Sin `GROQ_API_KEY` funciona igual, con el plan básico y sin test.
 - **Apuntes:** en el cuestionario se pueden subir PDF, Word (.docx) o texto. Solo se lee el
   texto (un PDF escaneado, que es solo imagen, no sirve). Para el plan y para el test de cada
   bloque se manda al asistente solo la parte de los apuntes más relacionada con ese tema
   (`llm/apuntes.py`), porque un temario entero no cabe en una consulta.
-- Perfil, pecera e historial se guardan en `studymate/data/` (no se suben al repositorio).
+- Perfil, zoo e historial se guardan en `studymate/data/` (no se suben al repositorio).
 
 Pruebas sin cámara ni ventana de la lógica de la sesión y el historial:
 
@@ -247,34 +247,38 @@ por defecto la siguiente vez.
 > COCO no distingue el móvil de la tablet. Si marcas cualquiera de los dos como permitido,
 > ninguno de los dos pausará el tiempo en esa sesión.
 
-## Gamificación: la pecera del panel principal
+## Gamificación: el zoo (un recinto por asignatura)
 
-La pecera **no cambia mientras se estudia**. Al terminar cada sesión, StudyMate la califica
-y la pecera del panel principal se actualiza:
+La pecera ha evolucionado a un **zoo**: cada asignatura del curso tiene su recinto con un
+animal que elige el estudiante entre **10** (pez, pingüino, león, jirafa, loro, mono,
+tortuga, rana, búho y zorro), uno distinto por asignatura. Cada animal tiene su recinto
+(acuario, polo, sabana, selva, playa, estanque, bosque…). En el panel principal se ve el
+recinto de cada asignatura con su nivel, su salud y el **avance**: las últimas sesiones
+(color = nota, alto = minutos) y las horas totales.
 
-| Sesión | Cómo se decide | Qué pasa en la pecera |
+Como la pecera, el zoo **no cambia mientras se estudia**. En el cuestionario se elige la
+asignatura de la sesión y, al terminar, solo cambia su recinto:
+
+| Sesión | Cómo se decide | Qué pasa en el recinto |
 |---|---|---|
-| Muy buena | puntuación ≥ 80 | +15 de salud y llega un pez nuevo (un pez dorado cada 3 muy buenas seguidas). Limpia los peces muertos |
-| Regular | entre 50 y 79 | se queda igual |
-| Mala | < 50 | −20 de salud, un pez muere y queda flotando, el agua se ensucia |
+| Muy buena | puntuación ≥ 80 | +15 de salud y llega otro animal; cada 3 animales, el recinto sube de nivel (máximo 9) |
+| Regular | entre 50 y 79 | se queda igual (y se corta la racha) |
+| Mala | < 50 | −20 de salud, se va un animal y el recinto pierde color |
 
 La puntuación parte del **porcentaje del tiempo previsto que se ha estudiado de verdad** y
 resta 8 puntos por cada vez que se coge el móvil y 4 por cada ausencia. El test, si se hace,
-suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Todos los valores están
-al principio de `studymate/gamificacion/pecera.py`.
+suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Al acabar, el resumen
+muestra una **autocrítica** en primera persona: qué ha ido bien y qué mejorar.
 
-La **racha** se cuenta por sesiones muy buenas seguidas (no por días): cada 3 llega un pez
-dorado. Al acabar, el panel muestra una **autocrítica** de la sesión en primera persona:
-qué ha ido bien y qué mejorar la próxima vez (móvil, ausencias, tiempo aprovechado, test).
-
-La pecera se guarda en `studymate/data/pecera.json` (no se sube al repositorio).
+- Reglas: `studymate/gamificacion/zoo.py` (la nota y la autocrítica, en `pecera.py`).
+- Dibujo: `studymate/gamificacion/escena_zoo.py` (Python puro; se pinta con QPainter y se
+  puede pasar a SVG).
+- Se guarda en `studymate/data/zoo.json`. Si ya había una pecera, la primera vez pasa a ser
+  el acuario de una asignatura «General».
 
 ```powershell
-# Pruebas sin interfaz (y vistas previas en SVG)
-python -m studymate.gamificacion.pruebas.prueba_pecera --svg pecera_svg
-
-# Ventana de prueba con la pecera animada (usa una pecera de prueba; --real para la tuya)
-python -m studymate.ui.pruebas.prueba_pecera
+# Pruebas sin interfaz (y vista previa de los 10 recintos en SVG)
+python -m studymate.gamificacion.pruebas.prueba_zoo --svg recintos_svg
 ```
 
 ## Estructura
@@ -301,6 +305,11 @@ studymate/
 │   ├── cuestionario.py  # cuestionario inicial y perfil de la sesión (RF5, RF11)
 │   ├── plan.py          # plan de bloques, validación y plan básico (RF6, RNF5, RNF8)
 │   └── pruebas/         # pruebas con y sin conexión
+├── gamificacion/
+│   ├── zoo.py           # un recinto por asignatura con su animal (10 a elegir)
+│   ├── escena_zoo.py    # dibujo de los recintos y los animales
+│   ├── pecera.py        # nota de la sesión y autocrítica (y la pecera original)
+│   └── pruebas/
 ├── sesion/
 │   ├── controlador.py   # bloques y fases (estudio, test, descanso), pausas, resumen
 │   ├── historial.py     # data/historial.json y estadísticas
@@ -311,7 +320,9 @@ studymate/
 │   ├── estilo.py        # colores y hoja de estilo
 │   ├── companero.py     # la cara del logo con expresiones
 │   ├── camara_widget.py # imagen de la cámara y marcar el móvil con el ratón
-│   ├── pecera_widget.py # la pecera animada
+│   ├── zoo_widget.py    # un recinto del zoo animado y el icono de cada animal
+│   ├── dialogo_asignatura.py  # añadir una asignatura y elegir su animal
+│   ├── pintar.py        # pinta con QPainter las figuras de las escenas
 │   └── pantallas/       # inicio, cuestionario, plan, preparación, sesión, test,
 │                        # descanso, resumen e historial
 └── data/                # perfil e historial (JSON, no se suben)

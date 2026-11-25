@@ -27,6 +27,7 @@ class RegistroSesion:
     test_aciertos: int | None = None
     test_total: int | None = None
     origen_plan: str = "llm"
+    asignatura: str = ""
     modo_prueba: bool = False
     fecha: str = field(default_factory=lambda: datetime.now().isoformat(timespec="minutes"))
 
