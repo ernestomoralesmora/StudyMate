@@ -4,10 +4,10 @@ Proyecto de Diseño de Sistemas Interactivos (UCLM, curso 26/27).
 Autores: Pablo Santillana Fernández y Ernesto Morales Mora.
 
 StudyMate es un compañero de estudio virtual. Usa la cámara para saber si estás
-estudiando y pausa el tiempo cuando no lo haces. Más adelante planificará las sesiones
-con un LLM.
+estudiando y pausa el tiempo cuando no lo haces, y planifica las sesiones con un LLM.
 
-**Estado actual: fase 1 (cámara y temporizador) hecha; fase 2 (LLM) en curso.**
+**Estado actual: las tres fases montadas (cámara, LLM e interfaz PySide6). Queda afinar
+la detección del móvil con pruebas.**
 
 ## Requisitos
 
@@ -30,6 +30,32 @@ Si PowerShell no deja activar el entorno, ejecuta antes
 
 > No instales `opencv-python` además de `opencv-contrib-python` (MediaPipe ya instala
 > este último). Los dos comparten la carpeta `cv2` y se rompen entre sí.
+
+## Ejecutar la aplicación
+
+```powershell
+python -m studymate.main
+```
+
+Recorrido: **panel principal** (pecera) → **cuestionario** → **plan** (con el asistente o,
+sin conexión, un plan básico) → **preparación** de 30 s (marcar el móvil con el ratón) →
+**sesión** por bloques (estudio → test → descanso) → **resumen** (nota, autocrítica y
+pecera) → panel principal. El **historial** se abre desde el panel principal.
+
+- En la sesión, el tiempo del bloque solo avanza mientras estudias. Si hay una duda,
+  aparece una pregunta abajo: botones o teclas **S** / **N**.
+- El test se responde con el ratón o con **A**, **B** y **C**; **Enter** pasa a la siguiente.
+- Para probarlo todo en poco tiempo, marca en el cuestionario **Modo prueba**: cada minuto
+  del plan dura 10 s. Las sesiones de prueba salen en el historial marcadas, pero no cuentan
+  en los totales (la pecera sí cambia).
+- Sin `GROQ_API_KEY` funciona igual, con el plan básico y sin test.
+- Perfil, pecera e historial se guardan en `studymate/data/` (no se suben al repositorio).
+
+Pruebas sin cámara ni ventana de la lógica de la sesión y el historial:
+
+```powershell
+python -m studymate.sesion.pruebas.prueba_sesion
+```
 
 ## Ejecutar la prueba de la cámara
 
@@ -251,7 +277,7 @@ python -m studymate.ui.pruebas.prueba_pecera
 
 ```
 studymate/
-├── main.py              # arranca la app (por ahora, la prueba de cámara)
+├── main.py              # arranca la interfaz
 ├── vision/
 │   ├── config.py        # umbrales y constantes
 │   ├── camara.py        # captura con OpenCV
@@ -261,6 +287,9 @@ studymate/
 │   ├── estados.py       # máquina de estados con el margen de 1,5 s
 │   ├── temporizador.py  # cuenta solo en ESTUDIANDO
 │   ├── motor.py         # hilo de detección que une todo lo anterior
+│   ├── aparcado.py      # vigilar el sitio del móvil (idea de la profesora)
+│   ├── preparacion.py   # los 30 s de preparación antes de la sesión
+│   ├── clip.py          # verificador CLIP (en pruebas, desactivado)
 │   └── pruebas/         # scripts de prueba de cada parte
 ├── llm/
 │   ├── cliente_groq.py  # llamadas a Groq con respuesta JSON por esquema
@@ -268,6 +297,18 @@ studymate/
 │   ├── cuestionario.py  # cuestionario inicial y perfil de la sesión (RF5, RF11)
 │   ├── plan.py          # plan de bloques, validación y plan básico (RF6, RNF5, RNF8)
 │   └── pruebas/         # pruebas con y sin conexión
-├── ui/                  # fase 3
+├── sesion/
+│   ├── controlador.py   # bloques y fases (estudio, test, descanso), pausas, resumen
+│   ├── historial.py     # data/historial.json y estadísticas
+│   └── pruebas/
+├── ui/
+│   ├── app.py           # QApplication y estilo
+│   ├── ventana.py       # une las pantallas y lleva la sesión
+│   ├── estilo.py        # colores y hoja de estilo
+│   ├── companero.py     # la cara del logo con expresiones
+│   ├── camara_widget.py # imagen de la cámara y marcar el móvil con el ratón
+│   ├── pecera_widget.py # la pecera animada
+│   └── pantallas/       # inicio, cuestionario, plan, preparación, sesión, test,
+│                        # descanso, resumen e historial
 └── data/                # perfil e historial (JSON, no se suben)
 ```

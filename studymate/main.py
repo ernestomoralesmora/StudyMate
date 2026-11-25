@@ -1,10 +1,10 @@
-"""Punto de entrada de StudyMate.
+"""Punto de entrada de StudyMate: abre la interfaz.
 
-Por ahora (fase 1) lanza la prueba de cámara. En la fase 3 abrirá la interfaz PySide6.
 Uso:  python -m studymate.main
+La prueba de cámara de la fase 1 sigue en:  python -m studymate.vision.pruebas.prueba_camara
 """
 
-from studymate.vision.pruebas.prueba_camara import main
+from studymate.ui.app import main
 
 if __name__ == "__main__":
     main()
