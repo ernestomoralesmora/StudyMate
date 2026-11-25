@@ -36,7 +36,17 @@ def main() -> None:
                    help="detector del móvil (para comparar)")
     p.add_argument("--movil-a-la-vista", action="store_true",
                    help="vigilar el sitio donde se deja el móvil al empezar")
+    p.add_argument("--registrar-aparcado", metavar="ARCHIVO.csv",
+                   help="guarda cada segundo los números de la vigilancia del móvil (nunca imágenes)")
     args = p.parse_args()
+    registro, ultimo_registro = None, 0.0
+    if args.registrar_aparcado:
+        import csv
+        archivo_registro = open(args.registrar_aparcado, "w", newline="", encoding="utf-8")
+        registro = csv.writer(archivo_registro)
+        registro.writerow(["t", "estado", "sitio_movil", "candidato", "caras", "manos",
+                           "movil_detectado", "visto_en_mano", "mejor_busqueda",
+                           "yolo_sitio", "parecido", "recuadro_sitio"])
 
     permitidas = frozenset({"cell phone"}) if args.permitir_movil else frozenset()
     motor = MotorDeteccion(clases_permitidas=permitidas, indice_camara=args.camara,
@@ -95,6 +105,24 @@ def main() -> None:
                                 if sitio == SitioMovil.FUERA else "Sigues estudiando? S = si / N = no")
                     texto(frame, f"{pregunta}  (pendiente {int(inst.pendiente_s)} s)", 4, (0, 230, 255))
                 cv2.imshow(VENTANA, frame)
+
+            if registro is not None and inst is not None:
+                import time
+                ahora = time.monotonic()
+                if ahora - ultimo_registro >= 0.5:
+                    ultimo_registro = ahora
+                    v = motor.vigilante
+                    o = inst.observacion
+                    registro.writerow([
+                        f"{ahora:.1f}", inst.estado.value, inst.sitio_movil.value, inst.candidato.value,
+                        len(o.caras), len(o.manos),
+                        max((f"{d.puntuacion:.2f}" for d in o.dispositivos), default=""),
+                        int(bool(v and v.visto_en_mano)),
+                        f"{v.mejor_busqueda[0]:.2f}" if v and v.mejor_busqueda else "",
+                        f"{v.ultima_yolo:.2f}" if v else "", f"{v.ultima_similitud:.2f}" if v else "",
+                        "" if not (v and v.recuadro) else " ".join(f"{c:.0f}" for c in v.recuadro),
+                    ])
+                    archivo_registro.flush()
 
             tecla = cv2.waitKey(15) & 0xFF
             if tecla in (ord("q"), ord("Q"), 27):
