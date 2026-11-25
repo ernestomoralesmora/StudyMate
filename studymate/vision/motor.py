@@ -149,12 +149,20 @@ class MotorDeteccion(threading.Thread):
             self.vigilante.marcar_a_mano(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), recuadro)
 
     def empezar_sesion(self) -> None:
-        """Acaba la preparación: desde aquí cuentan el estado y el tiempo."""
+        """Acaba la preparación (o una pausa): desde aquí cuentan el estado y el tiempo."""
         with self._cerrojo:
             v = self.vigilante
             if v is not None and v.estado == SitioMovil.BUSCANDO:
                 v.estado = SitioMovil.NO_ENCONTRADO  # no lo marcó: solo se vigila la mano
+            self.temporizador.reiniciar_reloj()
             self.en_sesion = True
+
+    def pausar_sesion(self) -> None:
+        """Test o descanso: la cámara sigue, pero ni el estado ni el tiempo avanzan."""
+        with self._cerrojo:
+            self.en_sesion = False
+
+    reanudar_sesion = empezar_sesion
 
     @property
     def vigilante(self):

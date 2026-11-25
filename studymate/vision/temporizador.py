@@ -55,6 +55,10 @@ class Temporizador:
         self.pendiente_s = 0.0
         self._respuesta_dudoso = estaba_estudiando
 
+    def reiniciar_reloj(self) -> None:
+        """Tras una pausa (preparación, test, descanso): no contar el tiempo parado."""
+        self._ultimo = None
+
     @property
     def esperando_confirmacion(self) -> bool:
         return self._estado_anterior == Estado.DUDOSO and self._respuesta_dudoso is None
