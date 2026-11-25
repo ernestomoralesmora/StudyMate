@@ -10,7 +10,7 @@ Uso:  python -m studymate.ui.pruebas.prueba_pecera [--real]
 import argparse
 import sys
 import tempfile
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -47,9 +47,10 @@ class VentanaPrueba(QWidget):
         self.carpeta = carpeta
         self.estado = pc.cargar(carpeta)
         self.dia = date.today()
+        self.ultimo_resultado = None
         self.setWindowTitle("StudyMate · Prueba de la pecera")
         self.setStyleSheet(ESTILO)
-        self.resize(1080, 560)
+        self.resize(1100, 640)
 
         titulo = QLabel("Panel principal")
         titulo.setObjectName("titulo")
@@ -70,9 +71,6 @@ class VentanaPrueba(QWidget):
             boton.setObjectName(nombre)
             boton.clicked.connect(lambda _=False, r=resumen: self.terminar_sesion(r))
             lateral.addWidget(boton)
-        siguiente = QPushButton("Pasar 4 días sin estudiar")
-        siguiente.clicked.connect(self.pasar_dias)
-        lateral.addWidget(siguiente)
         reiniciar = QPushButton("Reiniciar pecera")
         reiniciar.clicked.connect(self.reiniciar)
         lateral.addWidget(reiniciar)
@@ -91,28 +89,24 @@ class VentanaPrueba(QWidget):
         resultado = pc.calificar(resumen)
         cambios = pc.aplicar_sesion(self.estado, resultado, self.dia)
         pc.guardar(self.estado, self.carpeta)
-        self.dia += timedelta(days=1)
+        self.ultimo_resultado = resultado
         nombre = {"muy_buena": "muy buena", "regular": "regular", "mala": "mala"}[resultado.calificacion.value]
         self.ultimo.setText(f"Sesión {nombre} ({resultado.puntuacion}/100). " + " ".join(cambios))
         self.refrescar()
 
-    def pasar_dias(self) -> None:
-        self.dia += timedelta(days=4)
-        self.ultimo.setText("Han pasado 4 días. En la próxima sesión se notará en el agua.")
-
     def reiniciar(self) -> None:
         self.estado = pc.EstadoPecera.nueva()
         pc.guardar(self.estado, self.carpeta)
-        self.dia = date.today()
+        self.ultimo_resultado = None
         self.ultimo.setText("")
         self.refrescar()
 
     def refrescar(self) -> None:
         e = self.estado
         self.pecera.set_estado(e)
-        self.mensaje.setText(pc.mensaje(e))
+        self.mensaje.setText(pc.mensaje(e, self.ultimo_resultado))
         self.datos.setText(f"Salud {e.salud} % · {len(e.peces)} peces · agua {e.estado_agua}"
-                           f" · racha {e.racha_dias} días")
+                           f" · racha {e.racha_buenas} sesiones")
 
 
 def main() -> None:

@@ -25,9 +25,6 @@ BONUS_TEST_MAX = 5                   # el test es opcional y pesa poco
 MAX_PECES = 12
 SALUD_INICIAL = 60
 CAMBIO_SALUD = {"muy_buena": 15, "regular": 0, "mala": -20}
-DIAS_DE_GRACIA = 2                   # sin estudiar más días que estos, el agua se ensucia
-SUCIEDAD_POR_DIA = 5
-SUCIEDAD_MAXIMA = 30
 
 ESPECIES = [  # (nombre, color del cuerpo, color de la cola)
     ("Pez naranja", "#FF8A3D", "#E56F22"),
@@ -63,6 +60,8 @@ class ResultadoCalificacion:
     puntuacion: int
     motivos: list[str]
     cuenta: bool = True            # False si la sesión fue demasiado corta
+    bien: list[str] = field(default_factory=list)      # autocrítica: qué ha ido bien
+    mejorar: list[str] = field(default_factory=list)   # autocrítica: qué cambiar la próxima vez
 
 
 def calificar(resumen: ResumenSesion) -> ResultadoCalificacion:
@@ -89,13 +88,50 @@ def calificar(resumen: ResumenSesion) -> ResultadoCalificacion:
         puntos += BONUS_TEST_MAX * acierto
         motivos.append(f"Test: {resumen.test_aciertos}/{resumen.test_total} aciertos.")
     puntos = int(round(max(0, min(100, puntos))))
+    bien, mejorar = _autocritica(resumen, aprovechamiento)
     if puntos >= UMBRAL_MUY_BUENA:
         cal = Calificacion.MUY_BUENA
     elif puntos < UMBRAL_MALA:
         cal = Calificacion.MALA
     else:
         cal = Calificacion.REGULAR
-    return ResultadoCalificacion(cal, puntos, motivos)
+    return ResultadoCalificacion(cal, puntos, motivos, bien=bien, mejorar=mejorar)
+
+
+def _veces(n: int) -> str:
+    return "1 vez" if n == 1 else f"{n} veces"
+
+
+def _autocritica(r: ResumenSesion, aprovechamiento: float) -> tuple[list[str], list[str]]:
+    """Reflexión en primera persona sobre la sesión: qué ha ido bien y qué mejorar."""
+    bien: list[str] = []
+    mejorar: list[str] = []
+    pct = round(aprovechamiento * 100)
+    if aprovechamiento >= 0.9:
+        bien.append(f"He aprovechado casi todo el tiempo ({pct} %).")
+    elif aprovechamiento < 0.75:
+        mejorar.append(f"Solo he estudiado el {pct} % del tiempo previsto. "
+                       "Quizá los bloques eran demasiado largos: probaré con bloques más cortos.")
+    if r.pausas_movil == 0:
+        bien.append("No he cogido el móvil en toda la sesión.")
+    elif r.pausas_movil == 1:
+        mejorar.append("He cogido el móvil 1 vez. La próxima, en silencio y boca abajo.")
+    else:
+        mejorar.append(f"He cogido el móvil {_veces(r.pausas_movil)}: es lo que más me ha distraído. "
+                       "La próxima vez lo dejo en otra habitación.")
+    if r.pausas_ausente >= 2:
+        mejorar.append(f"Me he levantado {_veces(r.pausas_ausente)}. "
+                       "Antes de empezar preparo agua y todo el material.")
+    elif r.pausas_ausente == 0:
+        bien.append("No me he levantado de la mesa.")
+    if r.test_total:
+        acierto = (r.test_aciertos or 0) / r.test_total
+        if acierto >= 0.7:
+            bien.append(f"En el test he acertado {r.test_aciertos} de {r.test_total}.")
+        elif acierto < 0.5:
+            mejorar.append(f"En el test solo he acertado {r.test_aciertos} de {r.test_total}: "
+                           "tengo que repasar las preguntas falladas.")
+    return bien, mejorar
 
 
 @dataclass
@@ -111,9 +147,7 @@ class EstadoPecera:
     salud: int = SALUD_INICIAL
     peces: list[Pez] = field(default_factory=list)
     muertos_recientes: int = 0       # peces flotando, se limpian con la siguiente buena sesión
-    racha_buenas: int = 0            # sesiones muy buenas seguidas
-    racha_dias: int = 0              # días seguidos con alguna sesión que no sea mala
-    ultima_fecha: str | None = None  # fecha ISO de la última sesión que contó
+    racha_buenas: int = 0            # sesiones muy buenas seguidas (cada 3, un pez dorado)
     historial: list[dict] = field(default_factory=list)
 
     @classmethod
@@ -138,7 +172,6 @@ def aplicar_sesion(estado: EstadoPecera, resultado: ResultadoCalificacion,
     if not resultado.cuenta:
         return resultado.motivos[:]
 
-    cambios += _aplicar_abandono(estado, fecha)
     cal = resultado.calificacion
     estado.salud = max(0, min(100, estado.salud + CAMBIO_SALUD[cal.value]))
 
@@ -168,8 +201,6 @@ def aplicar_sesion(estado: EstadoPecera, resultado: ResultadoCalificacion,
         estado.racha_buenas = 0
         cambios.append("La pecera se mantiene igual.")
 
-    _actualizar_racha_dias(estado, fecha, cal)
-    estado.ultima_fecha = fecha.isoformat()
     estado.historial.append({
         "fecha": datetime.combine(fecha, datetime.now().time()).isoformat(timespec="minutes"),
         "calificacion": cal.value,
@@ -181,42 +212,37 @@ def aplicar_sesion(estado: EstadoPecera, resultado: ResultadoCalificacion,
     return cambios
 
 
-def _aplicar_abandono(estado: EstadoPecera, fecha: date) -> list[str]:
-    """Si se pasan varios días sin estudiar, el agua se ensucia un poco."""
-    if not estado.ultima_fecha:
-        return []
-    dias = (fecha - date.fromisoformat(estado.ultima_fecha)).days
-    if dias <= DIAS_DE_GRACIA:
-        return []
-    suciedad = min(SUCIEDAD_MAXIMA, SUCIEDAD_POR_DIA * (dias - DIAS_DE_GRACIA))
-    estado.salud = max(0, estado.salud - suciedad)
-    return [f"Llevabas {dias} días sin estudiar: el agua se ha ensuciado un poco."]
+def texto_racha(estado: EstadoPecera) -> str:
+    """La racha se cuenta por sesiones muy buenas seguidas, no por días."""
+    n = estado.racha_buenas
+    if n == 0:
+        return "Racha: 0 sesiones muy buenas seguidas."
+    faltan = 3 - n % 3
+    sesion = "sesión muy buena seguida" if n == 1 else "sesiones muy buenas seguidas"
+    extra = ("¡Pez dorado conseguido!" if faltan == 3
+             else f"{'Falta 1 sesión' if faltan == 1 else f'Faltan {faltan} sesiones'} para el pez dorado.")
+    return f"Racha: {n} {sesion}. {extra}"
 
 
-def _actualizar_racha_dias(estado: EstadoPecera, fecha: date, cal: Calificacion) -> None:
-    if cal == Calificacion.MALA:
-        estado.racha_dias = 0
-        return
-    if estado.ultima_fecha:
-        dias = (fecha - date.fromisoformat(estado.ultima_fecha)).days
-        if dias == 0:
-            estado.racha_dias = max(1, estado.racha_dias)
-            return
-        if dias == 1:
-            estado.racha_dias += 1
-            return
-    estado.racha_dias = 1
-
-
-def mensaje(estado: EstadoPecera) -> str:
-    """Frase para el panel principal según cómo está la pecera."""
+def mensaje(estado: EstadoPecera, resultado: ResultadoCalificacion | None = None) -> str:
+    """Texto del panel principal: cómo está la pecera, la racha y la autocrítica de la última sesión."""
     if estado.salud >= 80:
-        return "Tu pecera está en su mejor momento. ¡Sigue así!"
-    if estado.salud >= 55:
-        return "Va bien. Una buena sesión más y llegará un pez nuevo."
-    if estado.salud >= 30:
-        return "El agua está turbia. Una sesión sin móvil la limpiará."
-    return "Tus peces lo están pasando mal. La próxima buena sesión los salvará."
+        lineas = ["Tu pecera está en su mejor momento. ¡Sigue así!"]
+    elif estado.salud >= 55:
+        lineas = ["Va bien. Una sesión muy buena más y llegará un pez nuevo."]
+    elif estado.salud >= 30:
+        lineas = ["El agua está turbia. Una sesión sin móvil la limpiará."]
+    else:
+        lineas = ["Tus peces lo están pasando mal. La próxima sesión muy buena los salvará."]
+    lineas.append(texto_racha(estado))
+    if resultado and resultado.cuenta:
+        if resultado.bien:
+            lineas.append("\nQué ha ido bien:")
+            lineas += [f"• {x}" for x in resultado.bien]
+        if resultado.mejorar:
+            lineas.append("\nQué puedo mejorar:")
+            lineas += [f"• {x}" for x in resultado.mejorar]
+    return "\n".join(lineas)
 
 
 # --- Guardar y cargar (studymate/data/pecera.json, no se sube al repositorio) ---------
@@ -227,7 +253,8 @@ def cargar(carpeta: Path = CARPETA_DATOS) -> EstadoPecera:
     try:
         datos = json.loads(ruta.read_text(encoding="utf-8"))
         datos["peces"] = [Pez(**p) for p in datos.get("peces", [])]
-        return EstadoPecera(**datos)
+        validos = EstadoPecera.__dataclass_fields__
+        return EstadoPecera(**{k: v for k, v in datos.items() if k in validos})
     except (ValueError, TypeError, KeyError):
         return EstadoPecera.nueva()
 

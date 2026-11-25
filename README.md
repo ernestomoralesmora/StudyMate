@@ -230,9 +230,12 @@ y la pecera del panel principal se actualiza:
 
 La puntuación parte del **porcentaje del tiempo previsto que se ha estudiado de verdad** y
 resta 8 puntos por cada vez que se coge el móvil y 4 por cada ausencia. El test, si se hace,
-suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Si se pasan más de 2 días
-sin estudiar, el agua se ensucia un poco (5 por día, como mucho 30). Todos los valores están
+suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Todos los valores están
 al principio de `studymate/gamificacion/pecera.py`.
+
+La **racha** se cuenta por sesiones muy buenas seguidas (no por días): cada 3 llega un pez
+dorado. Al acabar, el panel muestra una **autocrítica** de la sesión en primera persona:
+qué ha ido bien y qué mejorar la próxima vez (móvil, ausencias, tiempo aprovechado, test).
 
 La pecera se guarda en `studymate/data/pecera.json` (no se sube al repositorio).
 
