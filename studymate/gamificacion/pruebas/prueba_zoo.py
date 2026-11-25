@@ -73,14 +73,17 @@ def main() -> None:
 
     print("\nCrecer y decrecer")
     r = zoo.recinto("matemáticas")
-    ok(r.salud == 10 and r.animales == 1 and r.nivel == 1, "un recinto nuevo empieza con 1 animal y 10 %")
+    ok(r.salud == 10 and r.animales == 1, "un recinto nuevo empieza con 1 animal y 10 %")
     ok([z.resultado_test(n) for n in (10, 8, 7.9, 5, 4.9, 0)] == ["bien", "bien", "normal", "normal", "mal", "mal"],
        "8-10 bien, 5-7 normal, menos de 5 mal")
     cambios = z.aplicar_test(zoo, "Matemáticas", 8, 10)
     ok(r.animales == 2 and r.salud == 20 and "un 8" in cambios[0].lower(), "un 8: llega otro animal y +10 %")
     cambios = z.aplicar_test(zoo, "Matemáticas", 10, 10)
-    ok(r.animales == 3 and r.salud == 30 and "nivel 2" in cambios[0] and r.racha_buenas == 2,
-       "un 10: +10 %; con 3 animales, nivel 2")
+    ok(r.animales == 3 and r.salud == 30 and "30 %" in cambios[0] and r.racha_buenas == 2,
+       "un 10: otro animal más, ya al 30 %")
+    dos = z.frases_animo(2)
+    ok(len(dos) == 2 and dos[0] != dos[1] and all(f in z.FRASES_ANIMO for f in dos),
+       "dos frases de ánimo distintas para el panel principal")
     z.aplicar_test(zoo, "Matemáticas", 6, 10)
     ok(r.animales == 3 and r.racha_buenas == 0, "un 6: se queda igual y se corta la racha")
     cambios = z.aplicar_test(zoo, "Matemáticas", 3, 10)

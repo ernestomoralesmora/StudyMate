@@ -5,7 +5,7 @@ estudiante entre 10 (uno distinto por asignatura). El recinto cambia con la
 nota de cada TEST de esa asignatura (el del final de un bloque o el que se hace
 directamente desde el zoo), sobre 10:
 
-    de 8 a 10 (bien)    -> llega otro animal: +10 % (cada 3, el recinto sube de nivel)
+    de 8 a 10 (bien)    -> llega otro animal: +10 %
     de 5 a 7  (normal)  -> se queda igual
     menos de 5 (mal)    -> se va un animal: -10 %
 
@@ -16,6 +16,7 @@ Python puro: la interfaz solo lo dibuja. Se guarda en data/zoo.json.
 """
 
 import json
+import random
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -29,7 +30,6 @@ SALUD_POR_ANIMAL = 10    # % de salud que vale cada animal (10 animales = 100 %)
 ANIMALES_INICIALES = 1   # cada recinto nuevo empieza con un animal (10 %)
 NOTA_BIEN = 8            # nota (sobre 10) desde la que llega otro animal
 NOTA_APROBADO = 5        # por debajo, se va un animal
-ANIMALES_POR_NIVEL = 3
 MAX_HISTORIAL = 100
 MAX_TEMAS = 40
 
@@ -83,10 +83,6 @@ class Recinto:
     def salud(self) -> int:
         """10 % por animal."""
         return self.animales * SALUD_POR_ANIMAL
-
-    @property
-    def nivel(self) -> int:
-        return 1 + self.animales // ANIMALES_POR_NIVEL
 
     @property
     def minutos(self) -> float:
@@ -218,8 +214,7 @@ def aplicar_test(zoo: Zoo, asignatura: str, aciertos: int, total: int,
         r.racha_buenas += 1
         if r.animales < MAX_ANIMALES:
             r.animales += 1
-            subida = f" y el recinto sube al nivel {r.nivel}" if r.animales % ANIMALES_POR_NIVEL == 0 else ""
-            cambios.append(f"Un {texto_nota}: ¡ha llegado otro {animal}{subida}! "
+            cambios.append(f"Un {texto_nota}: ¡ha llegado otro {animal}! "
                            f"{r.asignatura} sube al {r.salud} %.")
         else:
             cambios.append(f"Un {texto_nota}: el recinto de {r.asignatura} ya está completo, al 100 %.")
@@ -260,18 +255,26 @@ def aplicar_sesion(zoo: Zoo, asignatura: str, resultado: ResultadoCalificacion,
     return cambios
 
 
-def mensaje(zoo: Zoo) -> str:
-    """Frase para el panel principal."""
-    if not zoo.recintos:
-        return "Tu zoo está vacío. Añade tus asignaturas y elige un animal para cada una."
-    peor = zoo.necesita_atencion()
-    if peor.salud >= 80:
-        return "Todo tu zoo está en plena forma. ¡Sigue así!"
-    if peor.animales == 0:
-        return (f"El recinto de {peor.asignatura} se ha quedado vacío: saca un {NOTA_BIEN} o más "
-                f"en un test para que vuelva un {peor.animal.nombre.lower()}.")
-    return (f"Cada test con un {NOTA_BIEN} o más trae otro animal (+10 %). "
-            f"{peor.asignatura} es la que más lo necesita ({peor.salud} %).")
+# Frases de ánimo para el panel principal (se eligen dos distintas cada vez que se abre).
+FRASES_ANIMO = [
+    "Cada minuto que estudias hoy es un paso menos para el examen. ¡Tú puedes!",
+    "No hace falta que sea perfecto: lo importante es empezar.",
+    "Un poco cada día llega mucho más lejos que mucho un solo día.",
+    "Tus animales confían en ti. ¡Vamos a por ese 8!",
+    "La constancia gana a la prisa. Hoy toca otro ratito de estudio.",
+    "Lo que estudias ahora es lo que mañana te sabrás sin esfuerzo.",
+    "Respira, guarda el móvil y dale caña. ¡Este tema es tuyo!",
+    "Cada test que apruebas hace crecer tu zoo… y lo que sabes.",
+    "Equivocarse en un test también es aprender. ¡Sigue intentándolo!",
+    "Empieza por lo que más te cueste: luego todo irá rodado.",
+    "Hoy es un buen día para que llegue otro animal a tu zoo.",
+    "Tu yo del examen te dará las gracias por esta sesión.",
+]
+
+
+def frases_animo(cuantas: int = 2, azar: random.Random | None = None) -> list[str]:
+    """Frases de ánimo distintas entre sí, elegidas al azar."""
+    return (azar or random).sample(FRASES_ANIMO, min(cuantas, len(FRASES_ANIMO)))
 
 
 # --- Guardar y cargar (data/zoo.json, no se sube al repositorio) --------------------------

@@ -77,7 +77,7 @@ class TarjetaRecinto(QFrame):
         nombre.setTextFormat(Qt.PlainText)
         nombre.setStyleSheet("font-size: 18px;")
         textos.addWidget(nombre)
-        textos.addWidget(etiqueta(f"{r.animal.habitat} · nivel {r.nivel} · {r.describir_animales()}", "nota"))
+        textos.addWidget(etiqueta(f"{r.animal.habitat} · {r.describir_animales()}", "nota"))
         cabecera.addLayout(textos, 1)
         cuerpo.addLayout(cabecera)
 
@@ -191,10 +191,10 @@ class PantallaInicio(Pagina):
         carpeta = self.ventana.carpeta
         zoo = z.cargar(carpeta)
         self.titulo.setText(zoo.nombre)
-        self.subtitulo.setText(f"Hola, {self.ventana.usuario.nombre.split()[0]}. Un animal por asignatura: "
-                               "cada uno crece con las notas de tus tests (8 o más: llega otro animal).")
+        animo_arriba, animo_panel = z.frases_animo(2)
+        self.subtitulo.setText(f"Hola, {self.ventana.usuario.nombre.split()[0]}. {animo_arriba}")
         self._pintar_recintos(zoo)
-        self.mensaje.setText(z.mensaje(zoo))
+        self.mensaje.setText(animo_panel)
         e = estadisticas(cargar_historial(carpeta))
         self.cifras["asignaturas"].setText(f"{len(zoo.recintos)}/{z.MAX_RECINTOS}")
         self.cifras["animales"].setText(str(zoo.total_animales))

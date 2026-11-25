@@ -41,7 +41,7 @@ class RecintoWidget(QWidget):
     def _describir(self) -> None:
         r = self._recinto
         self.setAccessibleDescription(f"{r.animal.habitat} de {r.asignatura}: {r.describir_animales()}, "
-                                      f"salud {r.salud} por ciento, nivel {r.nivel}")
+                                      f"salud {r.salud} por ciento")
 
     def heightForWidth(self, ancho: int) -> int:
         return int(ancho * ALTO / ANCHO)

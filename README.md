@@ -268,7 +268,7 @@ La pecera ha evolucionado a un **zoo**: cada asignatura del curso tiene su recin
 animal que elige el estudiante entre **10** (pez, pingüino, león, jirafa, loro, mono,
 tortuga, rana, búho y zorro), uno distinto por asignatura. Cada animal tiene su recinto
 (acuario, polo, sabana, selva, playa, estanque, bosque…). En el panel principal se ve el
-recinto de cada asignatura con su nivel, su salud y el **avance**: las últimas sesiones
+recinto de cada asignatura con su salud (%) y el **avance**: las últimas sesiones
 (color = nota, alto = minutos) y las horas totales.
 
 La **salud es 10 % por animal**: cada recinto empieza con **un animal (10 %)** y llega al
@@ -277,7 +277,7 @@ del final de un bloque como el que se hace con «Hacer un test» (nota sobre 10)
 
 | Nota del test | Qué pasa en el recinto |
 |---|---|
-| De 8 a 10 (bien) | llega otro animal: +10 %; cada 3 animales, el recinto sube de nivel |
+| De 8 a 10 (bien) | llega otro animal: +10 % |
 | De 5 a 7 (normal) | se queda igual |
 | Menos de 5 (suspenso) | se va un animal: −10 % (con 0 %, el recinto se queda vacío y gris) |
 

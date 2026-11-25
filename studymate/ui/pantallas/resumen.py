@@ -101,7 +101,7 @@ class PantallaResumen(Pagina):
         if recinto is not None:
             self.recinto.show()
             self.recinto.set_recinto(recinto)
-            self.titulo_recinto.setText(f"RECINTO DE {recinto.asignatura.upper()} · NIVEL {recinto.nivel}")
+            self.titulo_recinto.setText(f"RECINTO DE {recinto.asignatura.upper()} · {recinto.salud} %")
             racha = f"Racha: {recinto.texto_racha()}." if recinto.racha_buenas else ""
             self.cambios.setText(_lista(cambios) + ("\n\n" + racha if racha else ""))
         else:
