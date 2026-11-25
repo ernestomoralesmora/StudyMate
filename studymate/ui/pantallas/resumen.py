@@ -56,8 +56,8 @@ class PantallaResumen(Pagina):
         cuerpo = QHBoxLayout(contenido)
         cuerpo.setContentsMargins(0, 0, 8, 0)
         cuerpo.setSpacing(16)
-        cuerpo.addWidget(autocritica, 1)
-        cuerpo.addWidget(caja_pecera, 1)
+        cuerpo.addWidget(autocritica, 1, Qt.AlignTop)   # arriba, sin estirarse
+        cuerpo.addWidget(caja_pecera, 1, Qt.AlignTop)
         desplazable = QScrollArea()
         desplazable.setWidgetResizable(True)
         desplazable.setWidget(contenido)
