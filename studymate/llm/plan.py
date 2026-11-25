@@ -17,7 +17,7 @@ from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, 
 
 # --- Reglas de tiempos -------------------------------------------------------
 MIN_ESTUDIO = 5          # minutos mínimos de un bloque de estudio
-MINUTOS_TEST = 5         # el test de 5 preguntas (si el estudiante lo quiere)
+MINUTOS_TEST = 10        # el test de 10 preguntas (si el estudiante lo quiere)
 MAX_SIN_USAR = 3         # minutos de estudio que el plan del LLM puede perder respecto al óptimo
 MIN_DESCANSO = 3
 MAX_DESCANSO = 15
@@ -76,7 +76,15 @@ class Plan:
 
 
 def minutos_test(perfil: PerfilSesion) -> int:
-    return MINUTOS_TEST if perfil.con_test else 0
+    """Minutos del test de cada bloque. Si no cabe ni un bloque mínimo con su test
+    (p. ej., 10 min disponibles y el test dura 10), la sesión va sin test."""
+    if not perfil.con_test or not cabe_test(perfil):
+        return 0
+    return MINUTOS_TEST
+
+
+def cabe_test(perfil: PerfilSesion) -> bool:
+    return perfil.tiempo_disponible_min >= MIN_ESTUDIO + MINUTOS_TEST
 
 
 def descanso_base(perfil: PerfilSesion) -> int:
@@ -233,6 +241,8 @@ def plan_basico(perfil: PerfilSesion, aviso: str | None = None) -> Plan:
             f"Tienes {len(perfil.temas)} temas y caben {n} bloques: se estudian "
             "varios temas en cada bloque."
         )
+    if perfil.con_test and not test:
+        avisos.append(f"No hay tiempo para el test ({MINUTOS_TEST} min): la sesión será solo de estudio.")
     con_test = f", un test de {test} min" if test else ""
     return Plan(
         bloques=bloques,

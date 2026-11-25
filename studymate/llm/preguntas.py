@@ -1,18 +1,20 @@
 import json
 from collections.abc import Callable
 
+NUM_PREGUNTAS = 10  # preguntas del test de cada bloque
+
 
 def generar_preguntas(
     apuntes: str,
     consultar_modelo: Callable[[str], str],
 ) -> list[dict]:
-    """Genera y valida cinco preguntas sobre un bloque de apuntes."""
+    """Genera y valida NUM_PREGUNTAS preguntas sobre un bloque de apuntes."""
     apuntes = apuntes.strip()
     if not apuntes:
         raise ValueError("El bloque de apuntes está vacío.")
 
     peticion = (
-        "Genera cinco preguntas tipo test basadas únicamente en los apuntes. "
+        f"Genera {NUM_PREGUNTAS} preguntas tipo test basadas únicamente en los apuntes. "
         'Devuelve un objeto JSON con una clave "preguntas" que contiene el array, sin Markdown. '
         "Cada pregunta debe tener 'enunciado', 'opciones' (tres textos distintos "
         "en orden A, B y C), 'correcta' (A, B o C) y 'explicacion'. "
@@ -28,8 +30,8 @@ def generar_preguntas(
     except json.JSONDecodeError as error:
         raise ValueError("El modelo no devolvió un JSON válido.") from error
 
-    if not isinstance(preguntas, list) or len(preguntas) != 5:
-        raise ValueError("La respuesta debe contener exactamente cinco preguntas.")
+    if not isinstance(preguntas, list) or len(preguntas) != NUM_PREGUNTAS:
+        raise ValueError(f"La respuesta debe contener exactamente {NUM_PREGUNTAS} preguntas.")
 
     def tiene_texto(valor):
         return isinstance(valor, str) and bool(valor.strip())

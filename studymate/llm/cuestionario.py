@@ -182,7 +182,7 @@ def preguntar_por_consola() -> PerfilSesion:
             anterior.movil_a_la_vista if anterior else True,
         )
     con_test = _pedir_si_no(
-        "¿Quieres un test de 5 preguntas al final de cada bloque?",
+        "¿Quieres un test de 10 preguntas al final de cada bloque?",
         anterior.con_test if anterior else True,
     )
 

@@ -315,7 +315,7 @@ studymate/
 │   └── pruebas/         # scripts de prueba de cada parte
 ├── llm/
 │   ├── cliente_groq.py  # llamadas a Groq con respuesta JSON por esquema
-│   ├── preguntas.py     # 5 preguntas tipo test por bloque (RF7)
+│   ├── preguntas.py     # 10 preguntas tipo test por bloque (RF7)
 │   ├── cuestionario.py  # cuestionario inicial y perfil de la sesión (RF5, RF11)
 │   ├── plan.py          # plan de bloques, validación y plan básico (RF6, RNF5, RNF8)
 │   └── pruebas/         # pruebas con y sin conexión

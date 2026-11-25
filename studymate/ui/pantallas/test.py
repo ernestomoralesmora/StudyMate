@@ -1,4 +1,4 @@
-"""Test de 5 preguntas al final de un bloque (RF7). Se responde con el ratón o
+"""Test de 10 preguntas al final de un bloque (RF7). Se responde con el ratón o
 con las teclas A, B y C; Enter pasa a la siguiente."""
 
 from PySide6.QtCore import Qt
@@ -83,7 +83,7 @@ class PantallaTest(Pagina):
                           f"{datos}\n\nPuedes continuar sin test.", "triste")
         else:
             self._mensaje("Preparando las preguntas…",
-                          "El asistente está escribiendo 5 preguntas sobre este bloque.", "pregunta")
+                          "El asistente está escribiendo 10 preguntas sobre este bloque.", "pregunta")
 
     def _mensaje(self, titulo: str, texto: str, cara: str) -> None:
         self.companero.set_expresion(cara)

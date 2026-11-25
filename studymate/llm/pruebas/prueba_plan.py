@@ -8,6 +8,7 @@ from studymate.llm.cuestionario import PerfilSesion
 from studymate.llm.plan import (
     MINUTOS_TEST,
     _a_plan,
+    estudio_optimo,
     describir_plan,
     duracion_maxima_bloque,
     generar_plan,
@@ -18,7 +19,7 @@ from studymate.llm.plan import (
 
 def perfil(**cambios) -> PerfilSesion:
     datos = dict(
-        tiempo_disponible_min=60,
+        tiempo_disponible_min=70,
         concentracion_min=20,
         cansancio=2,
         temas=["Tema 1", "Tema 2"],
@@ -60,7 +61,8 @@ def main() -> None:
     valido = {"bloques": [bloque("Tema 1", 20), bloque("Tema 2", 20, 0)],
               "justificacion": "Dos bloques de 20 min."}
     plan = generar_plan(p, lambda _: valido)
-    comprobar(plan.origen == "llm" and plan.total == 55, "se acepta tal cual (55 de 60 min)")
+    total = 40 + 2 * MINUTOS_TEST + 5
+    comprobar(plan.origen == "llm" and plan.total == total, f"se acepta tal cual ({total} de 70 min)")
 
     print("\nPlan inválido que el LLM corrige al segundo intento")
     respuestas = iter([
@@ -103,7 +105,7 @@ def main() -> None:
     pb = plan_basico(p20)
     comprobar(sum(b.minutos_estudio for b in pb.bloques) == 17, "17 min de estudio en 20")
 
-    print("\n60 min y 20 de concentración, con test: 2 bloques de 20 mejor que 3 de 12")
+    print("\n70 min y 20 de concentración, con test: 2 bloques de 20 mejor que 3 de 12")
     pb = plan_basico(perfil())
     comprobar([b.minutos_estudio for b in pb.bloques] == [20, 20], "2 bloques de 20 min (40 de estudio)")
     print(describir_plan(pb))
@@ -116,7 +118,7 @@ def main() -> None:
     cubiertos = {t.strip() for b in pb.bloques for t in b.tema.split(",")}
     comprobar(cubiertos == set(p8.temas), "están los 8 temas")
     estudio = sum(b.minutos_estudio for b in pb.bloques)
-    comprobar(estudio == 65, f"máximo tiempo de estudio posible: {estudio} min de 100")
+    comprobar(estudio == estudio_optimo(p8)[1], f"máximo tiempo de estudio posible: {estudio} min de 100")
     print(describir_plan(pb))
 
     print("\nPlan del LLM que desaprovecha tiempo de estudio")
@@ -143,7 +145,7 @@ def main() -> None:
     finally:
         builtins.input = original
 
-    print("\nEjemplo de plan básico (60 min, 20 min de concentración):\n")
+    print("\nEjemplo de plan básico (70 min, 20 min de concentración):\n")
     print(describir_plan(plan_basico(p)))
     print("\nTodas las pruebas pasan.")
 
