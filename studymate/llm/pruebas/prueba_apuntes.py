@@ -9,8 +9,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from studymate.llm.apuntes import (ErrorApuntes, fragmentos, leer_archivo, para_test, seleccionar,
-                                   unir)
+from studymate.llm.apuntes import (BibliotecaApuntes, ErrorApuntes, fragmentos, leer_archivo, para_test,
+                                   seleccionar, unir)
 
 
 def ok(cond: bool, texto: str) -> None:
@@ -43,6 +43,28 @@ def main() -> None:
             ok(False, "avisa si no hay texto")
         except ErrorApuntes as e:
             ok("escaneado" in str(e), "avisa si no hay texto (PDF escaneado)")
+
+    print("\nApuntes guardados por asignatura")
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "tema1.txt").write_text("Derivadas: la pendiente de la recta tangente. " * 3, encoding="utf-8")
+        (tmp / "tema2.txt").write_text("Integrales: el área bajo la curva de una función. " * 3, encoding="utf-8")
+        usuario = tmp / "usuario"
+        mates = BibliotecaApuntes(usuario, "Matemáticas")
+        d1 = mates.anadir(tmp / "tema1.txt")
+        d2 = mates.anadir(tmp / "tema2.txt")
+        ok([d.nombre for d in mates.documentos()] == ["tema1.txt", "tema2.txt"], "se guardan los subidos")
+        ok(not list((mates.carpeta).glob("*.pdf")) and (mates.carpeta / f"{d1.id}.txt").exists(),
+           "solo se guarda el texto, no el archivo")
+        ok(BibliotecaApuntes(usuario, "Lengua").documentos() == [], "cada asignatura tiene los suyos")
+        ok(BibliotecaApuntes(usuario, "matemáticas").documentos() != [], "misma asignatura aunque cambien mayúsculas")
+        ok([n for n, _ in mates.elegidos([d2.id])] == ["tema2.txt"], "se eligen los que se quieren usar")
+        (tmp / "tema1.txt").write_text("Derivadas (versión nueva con más ejemplos). " * 3, encoding="utf-8")
+        mates.anadir(tmp / "tema1.txt")
+        ok(len(mates.documentos()) == 2 and "nueva" in mates.elegidos([d.id for d in mates.documentos()])[1][1],
+           "subir otra vez el mismo nombre lo sustituye")
+        mates.quitar(d2.id)
+        ok([d.nombre for d in mates.documentos()] == ["tema1.txt"], "se puede quitar uno")
 
     temario = "\n\n".join(
         [f"Tema {i}. " + ("Relleno sobre otras cosas distintas. " * 30) for i in range(1, 30)]

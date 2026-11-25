@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, 
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
-from studymate.llm.apuntes import ErrorApuntes, leer_archivo, unir
+from studymate.llm.apuntes import BibliotecaApuntes, ErrorApuntes, unir
 from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion
 
 from ..comun import Pagina, boton, etiqueta, tarjeta
@@ -88,28 +88,31 @@ class PantallaCuestionario(Pagina):
         self.a_la_vista = QCheckBox("Dejaré el móvil sobre la mesa, donde lo vea la cámara")
         self.permitir_movil.toggled.connect(self._actualizar_a_la_vista)
         self.con_test = QCheckBox("Quiero un test de 5 preguntas al final de cada bloque")
-        # Apuntes: archivos (PDF, Word, texto) y, si se quiere, texto pegado.
-        self.archivos: list[tuple[str, str]] = []  # (nombre, texto)
-        self.lista_archivos = etiqueta("Ningún archivo.", "nota")
-        self.lista_archivos.setTextFormat(Qt.PlainText)
+        # Apuntes guardados de ESTA asignatura: se suben una vez y en cada sesión se
+        # marcan los que se quieren usar. Y, si se quiere, texto pegado solo para hoy.
+        self.casillas_apuntes: list[tuple[QCheckBox, str]] = []  # (casilla, id del documento)
+        self.caja_lista_apuntes = QWidget()
+        self.capa_lista_apuntes = QVBoxLayout(self.caja_lista_apuntes)
+        self.capa_lista_apuntes.setContentsMargins(0, 0, 0, 0)
+        self.capa_lista_apuntes.setSpacing(6)
         self.error_archivos = etiqueta("", "error")
-        subir = boton("Subir apuntes (PDF, Word o texto)…", "primario", self._subir)
-        self.quitar = boton("Quitar los archivos", None, self._quitar)
-        self.quitar.setEnabled(False)
+        self.error_archivos.hide()
         fila_archivos = QHBoxLayout()
-        fila_archivos.addWidget(subir)
-        fila_archivos.addWidget(self.quitar)
+        fila_archivos.setContentsMargins(0, 0, 0, 0)
+        fila_archivos.addWidget(boton("Subir apuntes (PDF, Word o texto)…", "primario", self._subir))
+        for texto, valor in (("Marcar todos", True), ("Ninguno", False)):
+            fila_archivos.addWidget(boton(texto, None, lambda _=False, v=valor: self._marcar_apuntes(v)))
         fila_archivos.addStretch()
         self.apuntes = QPlainTextEdit()
-        self.apuntes.setPlaceholderText("También puedes pegar aquí texto (opcional).")
-        self.apuntes.setFixedHeight(80)
+        self.apuntes.setPlaceholderText("O pega aquí un texto solo para esta sesión (opcional).")
+        self.apuntes.setFixedHeight(70)
         caja_apuntes = QWidget()
         capa_apuntes = QVBoxLayout(caja_apuntes)
         capa_apuntes.setContentsMargins(0, 0, 0, 0)
         capa_apuntes.setSpacing(8)
         capa_apuntes.addLayout(fila_archivos)
-        capa_apuntes.addWidget(self.lista_archivos)
         capa_apuntes.addWidget(self.error_archivos)
+        capa_apuntes.addWidget(self.caja_lista_apuntes)
         capa_apuntes.addWidget(self.apuntes)
         self.modo_prueba = QCheckBox("Modo prueba: cada minuto del plan dura 10 segundos")
         self.error = etiqueta("", "error")
@@ -128,10 +131,10 @@ class PantallaCuestionario(Pagina):
                       "Si lo dejas a la vista, antes de empezar marcarás dónde está y "
                       "avisaremos si se mueve de ahí. Si lo tienes guardado, desmárcalo."),
             _pregunta("Test", self.con_test),
-            _pregunta("Tus apuntes (opcional)", caja_apuntes,
-                      "Si los subes, el plan y las preguntas del test se basan en ellos. Solo se lee "
-                      "el texto, no se guarda ninguna copia, y al asistente se le manda solo la parte "
-                      "de cada tema."),
+            _pregunta("¿Qué apuntes vas a usar hoy? (opcional)", caja_apuntes,
+                      "Los que subes se quedan guardados en esta asignatura para las próximas veces: "
+                      "marca los de hoy. Se guarda solo su texto, en este ordenador, y al asistente "
+                      "se le manda solo la parte de cada tema."),
             _pregunta("Para probar la aplicación", self.modo_prueba),
             espacio=14, margen=24,
         )
@@ -168,6 +171,9 @@ class PantallaCuestionario(Pagina):
         capa.addWidget(self.error)
         capa.addLayout(botones)
 
+    def _biblioteca(self) -> BibliotecaApuntes:
+        return BibliotecaApuntes(self.ventana.carpeta, self.ventana.asignatura)
+
     def _subir(self) -> None:
         rutas, _ = QFileDialog.getOpenFileNames(
             self, "Elige tus apuntes", str(Path.home()),
@@ -175,34 +181,61 @@ class PantallaCuestionario(Pagina):
         )
         if not rutas:
             return
+        biblioteca = self._biblioteca()
+        marcados = self._apuntes_marcados()
         errores = []
         QApplication.setOverrideCursor(Qt.WaitCursor)  # un PDF largo tarda unos segundos
         try:
             for ruta in rutas:
-                nombre = Path(ruta).name
-                if any(n == nombre for n, _ in self.archivos):
-                    continue
                 try:
-                    self.archivos.append((nombre, leer_archivo(ruta)))
+                    marcados.add(biblioteca.anadir(ruta).id)  # los recién subidos, marcados
                 except ErrorApuntes as error:
                     errores.append(str(error))
         finally:
             QApplication.restoreOverrideCursor()
         self.error_archivos.setText("\n".join(errores))
-        self._mostrar_archivos()
+        self.error_archivos.setVisible(bool(errores))
+        self._mostrar_apuntes(marcados)
 
-    def _quitar(self) -> None:
-        self.archivos = []
-        self.error_archivos.setText("")
-        self._mostrar_archivos()
+    def _apuntes_marcados(self) -> set[str]:
+        return {id_ for casilla, id_ in self.casillas_apuntes if casilla.isChecked()}
 
-    def _mostrar_archivos(self) -> None:
-        if not self.archivos:
-            self.lista_archivos.setText("Ningún archivo.")
-        else:
-            self.lista_archivos.setText("\n".join(
-                f"📄 {nombre} · {len(texto) // 1000 or 1} mil caracteres" for nombre, texto in self.archivos))
-        self.quitar.setEnabled(bool(self.archivos))
+    def _marcar_apuntes(self, valor: bool) -> None:
+        for casilla, _ in self.casillas_apuntes:
+            casilla.setChecked(valor)
+
+    def _quitar_apunte(self, id_documento: str, nombre: str) -> None:
+        respuesta = QMessageBox.question(
+            self, "Quitar apuntes", f"¿Quitar «{nombre}» de los apuntes de {self.ventana.asignatura}? "
+            "Tendrías que volver a subirlo para usarlo.")
+        if respuesta != QMessageBox.Yes:
+            return
+        marcados = self._apuntes_marcados() - {id_documento}
+        self._biblioteca().quitar(id_documento)
+        self._mostrar_apuntes(marcados)
+
+    def _mostrar_apuntes(self, marcados: set[str]) -> None:
+        while self.capa_lista_apuntes.count():
+            item = self.capa_lista_apuntes.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.casillas_apuntes = []
+        documentos = self._biblioteca().documentos()
+        if not documentos:
+            self.capa_lista_apuntes.addWidget(etiqueta("Esta asignatura aún no tiene apuntes guardados.", "nota"))
+        for d in documentos:
+            fila = QWidget()
+            capa = QHBoxLayout(fila)
+            capa.setContentsMargins(0, 0, 0, 0)
+            fecha = d.subido[8:10] + "/" + d.subido[5:7]
+            casilla = QCheckBox(f"{d.nombre}  ·  {max(1, d.caracteres // 1000)} mil caracteres  ·  subido el {fecha}")
+            casilla.setChecked(d.id in marcados)
+            self.casillas_apuntes.append((casilla, d.id))
+            quitar = boton("Quitar", None, lambda _=False, i=d.id, n=d.nombre: self._quitar_apunte(i, n))
+            quitar.setAccessibleName(f"Quitar {d.nombre} de los apuntes")
+            capa.addWidget(casilla, 1)
+            capa.addWidget(quitar)
+            self.capa_lista_apuntes.addWidget(fila)
 
     def _actualizar_a_la_vista(self) -> None:
         # Si el móvil está permitido, no se vigila su sitio.
@@ -286,9 +319,9 @@ class PantallaCuestionario(Pagina):
         self._actualizar_a_la_vista()
         self.con_test.setChecked(u.get("con_test", True))
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
-        self.archivos = []
         self.apuntes.clear()
-        self._mostrar_archivos()
+        self.error_archivos.hide()
+        self._mostrar_apuntes(set(u.get("apuntes", [])))
         self.nuevo_tema.clear()
         self.error_tema.setText("")
         self.error.setText("")
@@ -325,7 +358,9 @@ class PantallaCuestionario(Pagina):
             "conocimiento_previo": perfil.conocimiento_previo,
             "dispositivos_permitidos": perfil.dispositivos_permitidos,
             "movil_a_la_vista": perfil.movil_a_la_vista, "con_test": perfil.con_test,
+            "apuntes": sorted(self._apuntes_marcados()),
         }
         z.guardar(zoo, self.ventana.carpeta)
-        self.ventana.cuestionario_listo(perfil, unir(self.apuntes.toPlainText(), self.archivos),
+        elegidos = self._biblioteca().elegidos(sorted(self._apuntes_marcados()))
+        self.ventana.cuestionario_listo(perfil, unir(self.apuntes.toPlainText(), elegidos),
                                         self.modo_prueba.isChecked())

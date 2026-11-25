@@ -157,3 +157,83 @@ def para_plan(apuntes: str, temas: list[str]) -> str:
 
 def para_test(apuntes: str, tema: str, objetivo: str) -> str:
     return seleccionar(apuntes, f"{tema} {objetivo}", MAX_TEST)
+
+
+# --- Apuntes guardados de cada asignatura ----------------------------------------------
+# Para no tener que subirlos en cada sesión, se guarda SOLO EL TEXTO de cada archivo
+# (no el archivo) en la carpeta del usuario, separado por asignatura:
+#   data/usuarios/<usuario>/apuntes/<asignatura>/indice.json y <id>.txt
+import hashlib as _hashlib
+import json as _json
+import secrets as _secrets
+from dataclasses import asdict as _asdict
+from dataclasses import dataclass as _dataclass
+from datetime import datetime as _datetime
+
+MAX_DOCUMENTOS = 30
+
+
+@_dataclass
+class Documento:
+    id: str
+    nombre: str
+    caracteres: int
+    subido: str
+
+
+def _carpeta_asignatura(carpeta_usuario: Path, asignatura: str) -> Path:
+    limpio = re.sub(r"[^a-z0-9]+", "-", _normalizar(asignatura)).strip("-")[:30] or "asignatura"
+    huella = _hashlib.sha1(asignatura.casefold().encode("utf-8")).hexdigest()[:8]
+    return Path(carpeta_usuario) / "apuntes" / f"{limpio}-{huella}"
+
+
+class BibliotecaApuntes:
+    """Los apuntes guardados de una asignatura de un usuario."""
+
+    def __init__(self, carpeta_usuario: Path, asignatura: str):
+        self.carpeta = _carpeta_asignatura(carpeta_usuario, asignatura)
+
+    def _indice(self) -> list[Documento]:
+        ruta = self.carpeta / "indice.json"
+        if not ruta.exists():
+            return []
+        try:
+            return [Documento(**d) for d in _json.loads(ruta.read_text(encoding="utf-8"))]
+        except (ValueError, TypeError):
+            return []
+
+    def _guardar_indice(self, documentos: list[Documento]) -> None:
+        self.carpeta.mkdir(parents=True, exist_ok=True)
+        (self.carpeta / "indice.json").write_text(
+            _json.dumps([_asdict(d) for d in documentos], ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def documentos(self) -> list[Documento]:
+        return [d for d in self._indice() if (self.carpeta / f"{d.id}.txt").exists()]
+
+    def anadir(self, ruta: str | Path) -> Documento:
+        """Lee el archivo y guarda su texto. Si ya había uno con el mismo nombre, lo sustituye."""
+        nombre = Path(ruta).name
+        texto = leer_archivo(ruta)
+        documentos = [d for d in self.documentos() if d.nombre != nombre]
+        if len(documentos) >= MAX_DOCUMENTOS:
+            raise ErrorApuntes(f"Como mucho {MAX_DOCUMENTOS} archivos de apuntes por asignatura.")
+        for viejo in self.documentos():
+            if viejo.nombre == nombre:
+                (self.carpeta / f"{viejo.id}.txt").unlink(missing_ok=True)
+        nuevo = Documento(_secrets.token_hex(6), nombre, len(texto),
+                          _datetime.now().isoformat(timespec="minutes"))
+        self.carpeta.mkdir(parents=True, exist_ok=True)
+        (self.carpeta / f"{nuevo.id}.txt").write_text(texto, encoding="utf-8")
+        self._guardar_indice(documentos + [nuevo])
+        return nuevo
+
+    def quitar(self, id_documento: str) -> None:
+        (self.carpeta / f"{id_documento}.txt").unlink(missing_ok=True)
+        self._guardar_indice([d for d in self.documentos() if d.id != id_documento])
+
+    def texto(self, id_documento: str) -> str:
+        return (self.carpeta / f"{id_documento}.txt").read_text(encoding="utf-8")
+
+    def elegidos(self, ids: list[str]) -> list[tuple[str, str]]:
+        """(nombre, texto) de los documentos marcados, en el orden en que se subieron."""
+        return [(d.nombre, self.texto(d.id)) for d in self.documentos() if d.id in ids]
