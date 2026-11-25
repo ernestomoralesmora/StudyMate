@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QRadioButton, QComboBox, QFileDialog, QHBoxLayout, QLineEdit,
                                QMessageBox,
                                QPlainTextEdit,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
@@ -53,15 +53,21 @@ class PantallaCuestionario(Pagina):
         self.conocimiento = QComboBox()
         for k, v in NIVELES_CONOCIMIENTO.items():
             self.conocimiento.addItem(f"{k} · {v}", k)
-        self.permitir_movil = QCheckBox("El móvil")
-        self.permitir_tablet = QCheckBox("Una tablet (por ejemplo, con los apuntes)")
+        # Forma de estudiar: solo con apuntes (papel) o con tablet. Con tablet, lo que
+        # parezca un móvil en la mano no pausa (COCO no distingue tablet de móvil), pero
+        # se sigue vigilando el sitio del móvil si está a la vista.
+        self.solo_apuntes = QRadioButton("Solo con apuntes (papel, libro…)")
+        self.con_tablet = QRadioButton("Con tablet")
+        self.forma = QButtonGroup(self)
+        self.forma.addButton(self.solo_apuntes)
+        self.forma.addButton(self.con_tablet)
+        self.solo_apuntes.setChecked(True)
         dispositivos = QWidget()
         fila = QVBoxLayout(dispositivos)
         fila.setContentsMargins(0, 0, 0, 0)
-        fila.addWidget(self.permitir_tablet)
-        fila.addWidget(self.permitir_movil)
+        fila.addWidget(self.solo_apuntes)
+        fila.addWidget(self.con_tablet)
         self.a_la_vista = QCheckBox("Dejaré el móvil sobre la mesa, donde lo vea la cámara")
-        self.permitir_movil.toggled.connect(self._actualizar_a_la_vista)
         self.con_test = QCheckBox("Quiero un test de 10 preguntas al final de cada bloque")
         # Apuntes guardados de ESTA asignatura: se suben una vez y en cada sesión se
         # marcan los que se quieren usar. Y, si se quiere, texto pegado solo para hoy.
@@ -102,8 +108,8 @@ class PantallaCuestionario(Pagina):
                       "Con esto se decide lo largo que es cada bloque."),
             _pregunta("¿Cómo de cansado estás?", self.cansancio),
             _pregunta("¿Cuánto sabes ya del tema?", self.conocimiento),
-            _pregunta("¿Necesitas alguno de estos para estudiar?", dispositivos,
-                      "Lo que marques aquí no pausará el tiempo aunque lo uses."),
+            _pregunta("¿Cómo vas a estudiar?", dispositivos,
+                      "Si estudias con tablet, usarla no pausará el tiempo."),
             _pregunta("Tu móvil", self.a_la_vista,
                       "Si lo dejas a la vista, antes de empezar marcarás dónde está y "
                       "avisaremos si se mueve de ahí. Si lo tienes guardado, desmárcalo."),
@@ -211,12 +217,6 @@ class PantallaCuestionario(Pagina):
             capa.addWidget(quitar)
             self.capa_lista_apuntes.addWidget(fila)
 
-    def _actualizar_a_la_vista(self) -> None:
-        # Si el móvil está permitido, no se vigila su sitio.
-        self.a_la_vista.setEnabled(not self.permitir_movil.isChecked())
-        if self.permitir_movil.isChecked():
-            self.a_la_vista.setChecked(False)
-
     def _recinto(self) -> z.Recinto | None:
         return z.cargar(self.ventana.carpeta).recinto(self.ventana.asignatura)
 
@@ -231,10 +231,8 @@ class PantallaCuestionario(Pagina):
         self.cansancio.setCurrentIndex(u.get("cansancio", 2) - 1)
         self.conocimiento.setCurrentIndex(u.get("conocimiento_previo", 2) - 1)
         permitidos = u.get("dispositivos_permitidos", [])
-        self.permitir_movil.setChecked("movil" in permitidos)
-        self.permitir_tablet.setChecked("tablet" in permitidos)
+        (self.con_tablet if "tablet" in permitidos else self.solo_apuntes).setChecked(True)
         self.a_la_vista.setChecked(u.get("movil_a_la_vista", True))
-        self._actualizar_a_la_vista()
         self.con_test.setChecked(u.get("con_test", True))
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
         self.apuntes.clear()
@@ -254,8 +252,7 @@ class PantallaCuestionario(Pagina):
             self.error.setText("Marca los apuntes que vas a estudiar hoy (o sube alguno, o pega un texto).")
             return
         temas = [nombre_tema(nombre) for nombre, _ in elegidos] or [asignatura]
-        dispositivos = [d for d, c in (("movil", self.permitir_movil), ("tablet", self.permitir_tablet))
-                        if c.isChecked()]
+        dispositivos = ["tablet"] if self.con_tablet.isChecked() else []
         try:
             perfil = PerfilSesion(
                 tiempo_disponible_min=self.tiempo.value(),
@@ -265,7 +262,7 @@ class PantallaCuestionario(Pagina):
                 conocimiento_previo=self.conocimiento.currentData(),
                 dispositivos_permitidos=dispositivos,
                 con_test=self.con_test.isChecked(),
-                movil_a_la_vista=self.a_la_vista.isChecked() and "movil" not in dispositivos,
+                movil_a_la_vista=self.a_la_vista.isChecked(),
                 asignatura=asignatura,
             )
         except ValueError as error:

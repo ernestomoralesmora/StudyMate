@@ -41,7 +41,9 @@ class MotorDeteccion(threading.Thread):
         """`movil_a_la_vista`: el estudiante deja el móvil donde la cámara lo vea
         (cuestionario). Al empezar se localiza y luego se vigila su sitio."""
         super().__init__(daemon=True, name="deteccion")
-        self.movil_a_la_vista = movil_a_la_vista and "cell phone" not in clases_permitidas
+        # Aunque se estudie con tablet (que la detección no distingue de un móvil),
+        # el sitio del móvil se sigue vigilando: es la forma de saber si se coge.
+        self.movil_a_la_vista = movil_a_la_vista
         self.clases_permitidas = clases_permitidas
         self.indice_camara = indice_camara
         self.modelo_movil = modelo_movil
