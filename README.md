@@ -72,6 +72,7 @@ Pruebas sin cámara ni ventana de la lógica de la sesión y el historial:
 
 ```powershell
 python -m studymate.sesion.pruebas.prueba_sesion
+python -m studymate.llm.pruebas.prueba_preguntas
 python -m studymate.pruebas.prueba_usuarios
 ```
 
