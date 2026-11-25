@@ -85,12 +85,24 @@ Un móvil sobre la mesa, lejos de las manos, no cuenta.
 El estado solo cambia cuando la nueva situación se mantiene **3 segundos**. Los cortes
 de menos de 0,5 s (fallos sueltos del detector) no reinician la cuenta.
 
-El temporizador solo suma en ESTUDIANDO. El tiempo en DUDOSO queda pendiente:
+El temporizador solo suma en ESTUDIANDO.
 
-- Si confirmas que estabas estudiando (`S`), se suma.
-- Si dices que no (`N`), se descarta.
-- Si no respondes y la detección vuelve a ESTUDIANDO, se suma. Si pasa a otro estado,
-  se descarta.
+DUDOSO significa que StudyMate te pregunta *¿Sigues estudiando?*. Como la pregunta
+distrae, sale poco:
+
+- Solo se pregunta si la duda dura **15 s** seguidos. Mientras tanto, el estado sigue
+  como estaba.
+- Tras responder, no se vuelve a preguntar en **10 minutos**. Una duda nueva en ese
+  tiempo no cambia el estado.
+
+Qué pasa al responder:
+
+- `S`: pasa a **ESTUDIANDO** y se suma el tiempo pendiente. La respuesta vale mientras
+  siga la misma duda, así que no vuelve a preguntar.
+- `N`: pasa a **AUSENTE**, se pausa y se descuenta el tiempo de duda que ya se había
+  contado. En cuanto vuelva a verte, regresa a ESTUDIANDO.
+- Si no respondes y la detección vuelve a ESTUDIANDO, el pendiente se suma. Si pasa a
+  otro estado, se descarta.
 
 Todos los umbrales están en [`studymate/vision/config.py`](studymate/vision/config.py).
 

@@ -101,8 +101,21 @@ class MotorDeteccion(threading.Thread):
             return self._ultima
 
     def confirmar_dudoso(self, estaba_estudiando: bool) -> None:
+        """Respuesta a "¿Sigues estudiando?": S -> ESTUDIANDO, N -> AUSENTE."""
         with self._cerrojo:
-            self.temporizador.confirmar_dudoso(estaba_estudiando)
+            maquina = self.maquina
+            if maquina.estado != Estado.DUDOSO:
+                return  # no había ninguna pregunta en curso
+            descuento = (
+                maquina.duda_previa_s
+                if maquina.estado_antes_de_duda == Estado.ESTUDIANDO
+                else 0.0
+            )
+            self.temporizador.confirmar_dudoso(estaba_estudiando, descuento)
+            maquina.confirmar(
+                Estado.ESTUDIANDO if estaba_estudiando else Estado.AUSENTE,
+                time.monotonic(),
+            )
 
     def detener(self) -> None:
         self._parar.set()

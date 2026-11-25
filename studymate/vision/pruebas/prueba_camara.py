@@ -25,7 +25,7 @@ def main() -> None:
     p.add_argument("--permitir-movil", action="store_true",
                    help="el móvil/tablet en la mano no pausa (dispositivo permitido)")
     p.add_argument("--modelo", default=config.MODELO_OBJETOS,
-                   choices=["yolo", "objetos_preciso", "objetos"],
+                   choices=["yolo", "yolo_s", "yolo_s416", "yolo_m", "objetos_preciso", "objetos"],
                    help="detector del móvil (para comparar)")
     args = p.parse_args()
 

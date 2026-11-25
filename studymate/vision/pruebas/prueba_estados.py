@@ -47,6 +47,28 @@ def prueba_clasificacion():
     obs = Observacion(caras=[cara], manos=[mano], dispositivos=[dudoso])
     marcar_cercania(obs)
     assert clasificar(obs) == D
+
+    # Recuadro pequeño metido dentro de la mano (dedo, bolígrafo, gesto con la
+    # mano vacía): no es un móvil aunque la puntuación sea alta.
+    falso = Dispositivo("cell phone", 0.8, (320, 320, 350, 350))
+    obs = Observacion(caras=[cara], manos=[mano], dispositivos=[falso])
+    marcar_cercania(obs)
+    assert falso.descartado == "pequeño" and not falso.cerca_de_mano
+    assert clasificar(obs) == E
+
+    # Boli cogido en pinza (pulgar e índice juntos): el recuadro de mano + boli
+    # es grande, pero la postura delata que no es un móvil.
+    boli = Dispositivo("cell phone", 0.65, (310, 260, 370, 370))
+    obs = Observacion(caras=[cara], manos=[mano], pinza_manos=[0.15], dispositivos=[boli])
+    marcar_cercania(obs)
+    assert boli.descartado == "pinza" and clasificar(obs) == E
+
+    # Un móvil del tamaño de la mano, con la mano rodeándolo, sí cuenta.
+    real = Dispositivo("cell phone", 0.8, (310, 260, 370, 370))
+    obs = Observacion(caras=[cara], manos=[mano], pinza_manos=[0.7], dispositivos=[real])
+    marcar_cercania(obs)
+    assert not real.descartado and real.cerca_de_mano
+    assert clasificar(obs) == M
     print("OK  clasificación")
 
 
@@ -91,8 +113,56 @@ def prueba_temporizador():
     print("OK  temporizador")
 
 
+def responder(m, t, estaba_estudiando, ahora):
+    """Lo mismo que hace MotorDeteccion.confirmar_dudoso al pulsar S o N."""
+    descuento = m.duda_previa_s if m.estado_antes_de_duda == E else 0.0
+    t.confirmar_dudoso(estaba_estudiando, descuento)
+    m.confirmar(E if estaba_estudiando else A, ahora)
+
+
+def prueba_preguntas():
+    m, t = MaquinaEstados(margen_s=3.0, estado_inicial=E), Temporizador()
+    t_ = simular(m, t, E, 5, 0)
+
+    # Taparse la cara un rato no pregunta: hace falta duda durante 15 s.
+    t_ = simular(m, t, D, 10, t_)
+    assert m.estado == E, "con 10 s de duda todavía no pregunta"
+    t_ = simular(m, t, D, 6, t_)
+    assert m.estado == D and t.esperando_confirmacion
+
+    # N -> AUSENTE, y se descuentan los 15 s de duda que se habían contado.
+    responder(m, t, False, t_)
+    assert m.estado == A
+    assert 4 <= t.estudiado_s <= 6, t.estudiado_s
+    t_ = simular(m, t, D, 30, t_)
+    assert m.estado == A, "la misma duda no vuelve a preguntar"
+    assert t.estudiado_s <= 6
+
+    # Se destapa la cara: vuelve a ESTUDIANDO por lo que se ve.
+    t_ = simular(m, t, E, 4, t_)
+    assert m.estado == E
+    # Otra duda antes de 10 min: no pregunta y no pausa (no usa el "no" de antes).
+    antes = t.estudiado_s
+    t_ = simular(m, t, D, 30, t_)
+    assert m.estado == E and t.estudiado_s > antes + 25
+
+    # Pasados 10 min desde la respuesta, una duda larga vuelve a preguntar.
+    t_ = simular(m, t, E, 600, t_)
+    t_ = simular(m, t, D, 16, t_)
+    assert m.estado == D
+
+    # S -> ESTUDIANDO, y sigue así aunque la duda continúe.
+    responder(m, t, True, t_)
+    assert m.estado == E
+    antes = t.estudiado_s
+    simular(m, t, D, 30, t_)
+    assert m.estado == E and t.estudiado_s > antes + 25
+    print("OK  preguntas (S -> ESTUDIANDO, N -> AUSENTE, pocas preguntas)")
+
+
 if __name__ == "__main__":
     prueba_clasificacion()
     prueba_margen()
     prueba_temporizador()
+    prueba_preguntas()
     print("Todas las pruebas pasan.")

@@ -30,6 +30,11 @@ MODELOS = {
     # YOLO26n exportado a ONNX (entrada 320x320). Va incluido en el repositorio
     # porque exportarlo requiere PyTorch; ver herramientas/exportar_yolo.py.
     "yolo": ("yolo26n_320.onnx", None),
+    # YOLO26s (más grande, ~76 ms): en pruebas, todavía no va en el repositorio.
+    "yolo_s": ("yolo26s_320.onnx", None),
+    # En comparación (todavía no van en el repositorio):
+    "yolo_s416": ("yolo26s_416.onnx", None),  # YOLO26s con entrada 416, ~127 ms
+    "yolo_m": ("yolo26m_320.onnx", None),     # YOLO26m, ~246 ms, 82 MB
 }
 
 

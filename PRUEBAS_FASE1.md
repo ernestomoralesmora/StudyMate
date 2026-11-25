@@ -49,9 +49,11 @@ ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son norm
 | 9 | Coger el móvil y usarlo 15 s | A los ~3 s, **USANDO_MOVIL** (naranja) y se mantiene; el tiempo se para | | |
 | 10 | Soltar el móvil en la mesa | A los ~3–4 s, **ESTUDIANDO** | | |
 | 11 | Usar el móvil con la otra mano | Igual que la prueba 9 | | |
-| 12 | Taparte la cara con las manos a la vista | **DUDOSO** (amarillo) con "Sigues estudiando?" | | |
-| 13 | En DUDOSO, pulsar **S** | El tiempo pendiente se suma al estudiado | | |
-| 14 | En DUDOSO, pulsar **N** | El tiempo pendiente se descarta | | |
+| 12 | Taparte la cara 5 s con las manos a la vista | **No** pregunta (hacen falta 15 s) | | |
+| 12b | Taparte la cara 20 s con las manos a la vista | A los ~15 s, **DUDOSO** (amarillo) con "Sigues estudiando?" | | |
+| 13 | En DUDOSO, pulsar **S** (sin destaparte) | Pasa a **ESTUDIANDO** al momento, suma el pendiente y no vuelve a preguntar | | |
+| 14 | En DUDOSO, pulsar **N** | Pasa a **AUSENTE** al momento; al destaparte, vuelve a ESTUDIANDO | | |
+| 14b | Justo después, taparte otra vez 20 s | **No** pregunta (pausa de 10 min) y no cambia de estado | | |
 | 15 | Pulsar **Q** | Se cierra y la consola muestra el tiempo total | | |
 
 Repite las pruebas 9 y 10 con el portátil en otra posición o con otra luz (por ejemplo,

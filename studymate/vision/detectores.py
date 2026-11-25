@@ -48,22 +48,23 @@ def recorte_mano(
 
 
 class _MovilYolo:
-    """YOLO26n exportado a ONNX (herramientas/exportar_yolo.py)."""
+    """YOLO26 (n o s) exportado a ONNX (herramientas/exportar_yolo.py)."""
 
-    LADO = 320
     IDS_COCO = {"cell phone": 67}
 
-    def __init__(self):
+    def __init__(self, nombre: str = "yolo"):
         import onnxruntime as ort
 
         opciones = ort.SessionOptions()
         opciones.intra_op_num_threads = config.HILOS_YOLO
         self._sesion = ort.InferenceSession(
-            ruta_modelo("yolo"),
+            ruta_modelo(nombre),
             opciones,
             providers=["CPUExecutionProvider"],
         )
-        self._entrada = self._sesion.get_inputs()[0].name
+        entrada = self._sesion.get_inputs()[0]
+        self._entrada = entrada.name
+        self.LADO = entrada.shape[2]  # tamaño de entrada con el que se exportó
         self._clases = {self.IDS_COCO[c]: c for c in config.CLASES_DISPOSITIVO}
 
     def detectar(self, recorte_rgb):
@@ -153,7 +154,9 @@ class DetectorDispositivos(threading.Thread):
         super().__init__(daemon=True, name="deteccion-movil")
         self.modelo = modelo
         self._motor = (
-            _MovilYolo() if modelo == "yolo" else _MovilMediapipe(modelo)
+            _MovilYolo(modelo)
+            if modelo.startswith("yolo")
+            else _MovilMediapipe(modelo)
         )
         self._cerrojo = threading.Lock()
         self._hay_trabajo = threading.Event()
@@ -262,11 +265,21 @@ class Analizador:
 
         for d in self._caras.detect_for_video(imagen, ts_ms).detections:
             obs.caras.append(_recuadro(d.bounding_box))
+            obs.confianza_caras.append(d.categories[0].score)
 
         for puntos in self._manos.detect_for_video(imagen, ts_ms).hand_landmarks:
             xs = [p.x * ancho for p in puntos]
             ys = [p.y * alto for p in puntos]
             obs.manos.append((min(xs), min(ys), max(xs), max(ys)))
+
+            # Puntos de MediaPipe: 0 muñeca, 4 pulgar, 8 índice, 9 base del
+            # dedo corazón, 20 meñique. La palma (0-9) sirve de escala.
+            def dist(a: int, b: int) -> float:
+                return float(np.hypot(xs[a] - xs[b], ys[a] - ys[b]))
+
+            palma = dist(0, 9) or 1.0
+            obs.pinza_manos.append(dist(4, 8) / palma)
+            obs.apertura_manos.append(dist(8, 20) / palma)
 
         # Si no vemos ninguna mano, buscamos el móvil alrededor de la cara.
         zonas_busqueda = obs.manos + obs.caras[:1]

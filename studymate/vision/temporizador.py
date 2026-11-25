@@ -41,10 +41,17 @@ class Temporizador:
                 self.pendiente_s += dt
             # Si el usuario dijo que no estaba estudiando, no se cuenta nada.
 
-    def confirmar_dudoso(self, estaba_estudiando: bool) -> None:
-        """Respuesta del usuario a "¿Sigues estudiando?" durante un episodio DUDOSO."""
+    def confirmar_dudoso(self, estaba_estudiando: bool, descontar_s: float = 0.0) -> None:
+        """Respuesta del usuario a "¿Sigues estudiando?" durante un episodio DUDOSO.
+
+        `descontar_s`: tiempo de duda que ya se había contado como estudio antes
+        de preguntar (la máquina espera MARGEN_DUDOSO_S); si la respuesta es que
+        no, se resta.
+        """
         if estaba_estudiando:
             self.estudiado_s += self.pendiente_s
+        else:
+            self.estudiado_s = max(0.0, self.estudiado_s - descontar_s)
         self.pendiente_s = 0.0
         self._respuesta_dudoso = estaba_estudiando
 

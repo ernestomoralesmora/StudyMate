@@ -30,7 +30,7 @@ def dibujar_observacion(frame, obs: Observacion) -> None:
         _rect(frame, m, (200, 120, 255), "mano")
     for d in obs.dispositivos:
         color = (0, 0, 255) if d.cerca_de_mano else (160, 160, 160)
-        texto = f"movil {d.puntuacion:.2f}" + (" EN MANO" if d.cerca_de_mano else "")
+        texto = f"movil {d.puntuacion:.2f}" + (" EN MANO" if d.cerca_de_mano else f" (descartado: {d.descartado})" if d.descartado else "")
         _rect(frame, d.recuadro, color, texto)
 
 
@@ -38,3 +38,25 @@ def texto(frame, linea: str, fila: int, color=(255, 255, 255), escala=0.6) -> No
     y = 28 + fila * 26
     cv2.putText(frame, linea, (10, y), cv2.FONT_HERSHEY_SIMPLEX, escala, (0, 0, 0), 4)
     cv2.putText(frame, linea, (10, y), cv2.FONT_HERSHEY_SIMPLEX, escala, color, 1)
+
+
+def mostrar(ventana: str, frame, espera_ms: int = 1) -> int:
+    """Muestra el fotograma y devuelve la tecla pulsada, o -1 si no hay.
+
+    Añade abajo cómo salir. Devuelve ord("q") si se cerró la ventana con la X:
+    si no, OpenCV la volvería a abrir con la cámara encendida.
+    """
+    alto = frame.shape[0]
+    cv2.putText(frame, "Q o Esc: salir (con esta ventana seleccionada)", (10, alto - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3)
+    cv2.putText(frame, "Q o Esc: salir (con esta ventana seleccionada)", (10, alto - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+    cv2.imshow(ventana, frame)
+    tecla = cv2.waitKey(espera_ms) & 0xFF
+    if cv2.getWindowProperty(ventana, cv2.WND_PROP_VISIBLE) < 1:
+        return ord("q")
+    return -1 if tecla == 255 else tecla
+
+
+def es_salir(tecla: int) -> bool:
+    return tecla in (ord("q"), ord("Q"), 27)
