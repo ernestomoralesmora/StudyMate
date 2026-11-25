@@ -260,7 +260,7 @@ FRASES_ANIMO = [
     "Cada minuto que estudias hoy es un paso menos para el examen. ¡Tú puedes!",
     "No hace falta que sea perfecto: lo importante es empezar.",
     "Un poco cada día llega mucho más lejos que mucho un solo día.",
-    "Tus animales confían en ti. ¡Vamos a por ese 8!",
+    "Tus animales confían en ti. ¡Ponte manos a la obra!",
     "La constancia gana a la prisa. Hoy toca otro ratito de estudio.",
     "Lo que estudias ahora es lo que mañana te sabrás sin esfuerzo.",
     "Respira, guarda el móvil y dale caña. ¡Este tema es tuyo!",
