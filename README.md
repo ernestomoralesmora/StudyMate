@@ -82,7 +82,7 @@ cada mano para que salga grande. Con eso, el fotograma sugiere un estado:
 
 Un móvil sobre la mesa, lejos de las manos, no cuenta.
 
-El estado solo cambia cuando la nueva situación se mantiene **3 segundos**. Los cortes
+El estado solo cambia cuando la nueva situación se mantiene **1,5 segundos**. Los cortes
 de menos de 0,5 s (fallos sueltos del detector) no reinician la cuenta.
 
 El temporizador solo suma en ESTUDIANDO.
@@ -202,7 +202,7 @@ studymate/
 │   ├── modelos.py       # descarga de los modelos de MediaPipe
 │   ├── detectores.py    # cara, manos y móvil con MediaPipe
 │   ├── observacion.py   # qué se ve en un fotograma y qué estado sugiere
-│   ├── estados.py       # máquina de estados con el margen de 3 s
+│   ├── estados.py       # máquina de estados con el margen de 1,5 s
 │   ├── temporizador.py  # cuenta solo en ESTUDIANDO
 │   ├── motor.py         # hilo de detección que une todo lo anterior
 │   └── pruebas/         # scripts de prueba de cada parte

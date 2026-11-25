@@ -44,7 +44,7 @@ studymate/
 ## Reglas de la detección
 - Estados: ESTUDIANDO, AUSENTE, USANDO_MOVIL, DUDOSO.
 - Solo se cambia de estado si la situación se mantiene unos segundos. El margen va en una
-  constante configurable (unos 3 s de entrada).
+  constante configurable (1,5 s; al principio eran 3 s).
 - "Usando el móvil" significa móvil detectado **cerca de una mano** de forma continuada,
   no simplemente que el móvil esté sobre la mesa.
 - Los dispositivos marcados como permitidos en el cuestionario (p. ej., una tablet con

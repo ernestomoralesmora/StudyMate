@@ -37,17 +37,17 @@ ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son norm
 
 | # | Qué hacer | Resultado esperado | ✅/❌ | Notas |
 |---|-----------|--------------------|------|-------|
-| 1 | Sentarte delante, normal | A los ~3 s, **ESTUDIANDO** (borde verde) y el tiempo avanza | | |
-| 2 | Levantarte e irte | A los ~3 s, **AUSENTE** (rojo) y el tiempo se para | | |
-| 3 | Volver a sentarte | A los ~3 s, **ESTUDIANDO** otra vez | | |
+| 1 | Sentarte delante, normal | A los ~1,5 s, **ESTUDIANDO** (borde verde) y el tiempo avanza | | |
+| 2 | Levantarte e irte | A los ~1,5 s, **AUSENTE** (rojo) y el tiempo se para | | |
+| 3 | Volver a sentarte | A los ~1,5 s, **ESTUDIANDO** otra vez | | |
 | 4 | Girar la cabeza 1 s y volver | **No** cambia de estado | | |
 | 5 | Mirar los apuntes agachado (sin móvil) | Sigue en ESTUDIANDO, o pasa a **DUDOSO** y pregunta | | |
 | 6 | Escribir a mano o pasar páginas | Sigue en **ESTUDIANDO** (nunca USANDO_MOVIL) | | |
 | 7 | Teclear en el portátil | Sigue en **ESTUDIANDO** | | |
 | 8 | Móvil sobre la mesa, sin tocarlo | Sigue en **ESTUDIANDO** | | |
 | 8b | Dibujar cuadrados o rectángulos, sujetar una goma, una calculadora o un estuche | Sigue en **ESTUDIANDO** (nunca USANDO_MOVIL) | | |
-| 9 | Coger el móvil y usarlo 15 s | A los ~3 s, **USANDO_MOVIL** (naranja) y se mantiene; el tiempo se para | | |
-| 10 | Soltar el móvil en la mesa | A los ~3–4 s, **ESTUDIANDO** | | |
+| 9 | Coger el móvil y usarlo 15 s | A los ~1,5 s, **USANDO_MOVIL** (naranja) y se mantiene; el tiempo se para | | |
+| 10 | Soltar el móvil en la mesa | A los ~2 s, **ESTUDIANDO** | | |
 | 11 | Usar el móvil con la otra mano | Igual que la prueba 9 | | |
 | 12 | Taparte la cara 5 s con las manos a la vista | **No** pregunta (hacen falta 15 s) | | |
 | 12b | Taparte la cara 20 s con las manos a la vista | A los ~15 s, **DUDOSO** (amarillo) con "Sigues estudiando?" | | |
