@@ -50,6 +50,36 @@ MARGEN_MANO = 0.5
 MIN_TAMANO_RESPECTO_MANO = 0.40  # área del móvil / área de la mano
 MIN_PINZA = 0.25                 # distancia pulgar-índice / tamaño de la palma
 
+# --- Verificador CLIP (rama mejora/clip, en pruebas) --------------------------
+# Qué decide si una detección junto a la mano cuenta como móvil:
+#   "reglas"        solo las reglas de tamaño y pinza (lo de siempre)
+#   "reglas+clip"   las reglas y, además, CLIP tiene que decir que es un móvil
+#   "clip"          solo CLIP (sin las reglas de tamaño y pinza)
+# Con "reglas" no se carga CLIP. Para compararlas con la cámara:
+#   python -m studymate.vision.pruebas.prueba_detectores --modelo yolo_s --clip
+MODO_VERIFICACION = "reglas"
+# Probabilidad mínima (0-1) que tiene que dar CLIP a las frases de móvil.
+UMBRAL_CLIP = 0.5
+# El recorte para CLIP es el recuadro del móvil ampliado esta fracción por cada
+# lado (así se ve también la mano, que ayuda a distinguir boli y móvil).
+MARGEN_RECORTE_CLIP = 0.3
+HILOS_CLIP = 2
+# CLIP funciona mejor en inglés. Las del móvil suman a favor; las otras, en contra.
+CLIP_TEXTOS_MOVIL = (
+    "a photo of a hand holding a smartphone",
+    "a photo of a person using a mobile phone",
+    "a close-up photo of a phone screen",
+)
+CLIP_TEXTOS_OTROS = (
+    "a photo of a hand holding a pen",
+    "a photo of a hand holding a correction fluid pen",
+    "a photo of a hand holding a wallet",
+    "a photo of a hand writing on paper",
+    "a photo of an empty hand",
+    "a photo of a hand holding a notebook",
+    "a photo of a person's face",
+)
+
 # Modelo para el móvil (va en su propio hilo, no baja los fps de la cámara):
 #   "yolo"            YOLO26n con onnxruntime, ~20 ms. Menos falsos positivos.
 #   "objetos_preciso" EfficientDet-Lite2 de MediaPipe, ~175 ms.

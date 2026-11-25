@@ -127,6 +127,28 @@ Para comparar con los detectores de MediaPipe, los dos scripts de prueba admiten
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.
 
+### Verificador CLIP (en pruebas, rama `mejora/clip`)
+
+YOLO a veces confunde con un móvil un boli, el típex o la cartera. Las reglas de tamaño y
+pinza quitan casi todos esos errores, pero también parte de los aciertos. CLIP (ViT-B/32)
+revisa cada candidato de YOLO comparándolo con frases ("a hand holding a smartphone",
+"a hand holding a pen"...). No hay que entrenar nada, y solo se ejecuta cuando YOLO ve algo
+junto a la mano, así que no baja los fps. La primera vez se descargan ~155 MB de Hugging Face.
+
+Se elige con `MODO_VERIFICACION` en `config.py`: `"reglas"` (por defecto, no carga CLIP),
+`"reglas+clip"` o `"clip"`.
+
+```powershell
+# 1) Comprobar CLIP por separado (tokenizador, tiempo y prueba en directo con objetos)
+python -m studymate.vision.pruebas.prueba_clip --camara
+
+# 2) Comparar las tres variantes en los mismos fotogramas (al salir imprime la tabla)
+python -m studymate.vision.pruebas.prueba_detectores --modelo yolo_s --clip
+```
+
+Haz la prueba 2 una vez usando el móvil y otra con boli, típex o cartera. Con el móvil
+interesa el porcentaje más alto; con lo demás, el más bajo.
+
 ## Fase 2: cuestionario y plan con el LLM
 
 Antes de cada sesión, un cuestionario pregunta el tiempo disponible, cuántos minutos

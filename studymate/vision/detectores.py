@@ -150,9 +150,14 @@ class _MovilMediapipe:
 class DetectorDispositivos(threading.Thread):
     """Busca el móvil en las zonas indicadas sin bloquear la cámara."""
 
-    def __init__(self, modelo: str = config.MODELO_OBJETOS):
+    def __init__(self, modelo: str = config.MODELO_OBJETOS, usar_clip: bool = False):
         super().__init__(daemon=True, name="deteccion-movil")
         self.modelo = modelo
+        # CLIP solo se carga si hace falta (tarda unos segundos y ocupa memoria).
+        self._clip = None
+        if usar_clip:
+            from .clip import VerificadorClip
+            self._clip = VerificadorClip()
         self._motor = (
             _MovilYolo(modelo)
             if modelo.startswith("yolo")
@@ -183,7 +188,7 @@ class DetectorDispositivos(threading.Thread):
                 return []
 
             return [
-                Dispositivo(d.clase, d.puntuacion, d.recuadro)
+                Dispositivo(d.clase, d.puntuacion, d.recuadro, prob_clip=d.prob_clip)
                 for d in dispositivos
             ]
 
@@ -222,6 +227,11 @@ class DetectorDispositivos(threading.Thread):
             in self._motor.detectar(recorte)
         ]
 
+        # CLIP revisa cada candidato mirando el fotograma completo alrededor.
+        if self._clip is not None:
+            for d in encontrados:
+                d.prob_clip = self._clip.prob_movil(frame_rgb, d.recuadro)
+
         with self._cerrojo:
             self._ultimo = (time.monotonic(), encontrados)
 
@@ -230,7 +240,16 @@ class DetectorDispositivos(threading.Thread):
 
 
 class Analizador:
-    def __init__(self, modelo_movil: str = config.MODELO_OBJETOS):
+    def __init__(
+        self,
+        modelo_movil: str = config.MODELO_OBJETOS,
+        modo_verificacion: str = config.MODO_VERIFICACION,
+        cargar_clip: bool | None = None,
+    ):
+        """`cargar_clip`: None = solo si el modo lo usa; True = siempre (para comparar)."""
+        self.modo_verificacion = modo_verificacion
+        if cargar_clip is None:
+            cargar_clip = "clip" in modo_verificacion
         modo = mpv.RunningMode.VIDEO
 
         self._caras = mpv.FaceDetector.create_from_options(
@@ -249,7 +268,7 @@ class Analizador:
             )
         )
 
-        self.dispositivos = DetectorDispositivos(modelo_movil)
+        self.dispositivos = DetectorDispositivos(modelo_movil, usar_clip=cargar_clip)
         self.dispositivos.start()
         self._ultimo_ts = -1
 
@@ -287,7 +306,7 @@ class Analizador:
             self.dispositivos.enviar(rgb, zonas_busqueda)
 
         obs.dispositivos = self.dispositivos.resultado(time.monotonic())
-        marcar_cercania(obs)
+        marcar_cercania(obs, modo=self.modo_verificacion)
         return obs
 
     def cerrar(self) -> None:

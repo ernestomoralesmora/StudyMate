@@ -1,4 +1,4 @@
-"""Rutas de los modelos de MediaPipe y descarga la primera vez que se usan.
+"""Rutas de los modelos (MediaPipe, YOLO, CLIP) y descarga la primera vez que se usan.
 
 Los modelos no se suben al repositorio (ver .gitignore).
 Se puede lanzar la descarga a mano con:  python -m studymate.vision.modelos
@@ -9,6 +9,7 @@ from pathlib import Path
 
 CARPETA = Path(__file__).resolve().parent / "modelos"
 _BASE = "https://storage.googleapis.com/mediapipe-models/"
+_CLIP = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/"
 
 MODELOS = {
     "cara": (
@@ -35,6 +36,11 @@ MODELOS = {
     # En comparación (todavía no van en el repositorio):
     "yolo_s416": ("yolo26s_416.onnx", None),  # YOLO26s con entrada 416, ~127 ms
     "yolo_m": ("yolo26m_320.onnx", None),     # YOLO26m, ~246 ms, 82 MB
+    # CLIP ViT-B/32 cuantizado (verificador del móvil, ver clip.py). ~155 MB en total.
+    "clip_vision": ("clip_vision_quantized.onnx", _CLIP + "onnx/vision_model_quantized.onnx"),
+    "clip_texto": ("clip_text_quantized.onnx", _CLIP + "onnx/text_model_quantized.onnx"),
+    "clip_vocab": ("clip_vocab.json", _CLIP + "vocab.json"),
+    "clip_merges": ("clip_merges.txt", _CLIP + "merges.txt"),
 }
 
 

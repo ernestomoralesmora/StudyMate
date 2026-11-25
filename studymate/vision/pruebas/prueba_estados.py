@@ -72,6 +72,32 @@ def prueba_clasificacion():
     print("OK  clasificación")
 
 
+def prueba_modos_clip():
+    """Las tres variantes con un boli que pasa las reglas pero CLIP rechaza, y al revés."""
+    cara, mano = (100, 100, 200, 200), (300, 300, 380, 380)
+
+    def ver(modo, prob, pinza=0.7, recuadro=(310, 260, 370, 370)):
+        d = Dispositivo("cell phone", 0.8, recuadro, prob_clip=prob)
+        obs = Observacion(caras=[cara], manos=[mano], pinza_manos=[pinza], dispositivos=[d])
+        marcar_cercania(obs, modo=modo)
+        return d, clasificar(obs)
+
+    # CLIP dice que no es un móvil (p. ej., una cartera del tamaño de la mano).
+    assert ver("reglas", 0.1)[1] == M           # las reglas solas no lo pillan
+    d, estado = ver("reglas+clip", 0.1)
+    assert d.descartado == "clip" and estado == E
+    assert ver("clip", 0.1)[1] == E
+    # CLIP dice que sí, pero la mano está en pinza.
+    assert ver("reglas+clip", 0.9, pinza=0.1)[0].descartado == "pinza"
+    assert ver("clip", 0.9, pinza=0.1)[1] == M  # sin reglas, cuenta
+    # Si CLIP no ha dado resultado, no se descarta por CLIP.
+    assert ver("clip", None)[1] == M
+    # Lo que dirían las reglas se guarda siempre, para comparar.
+    d, _ = ver("clip", 0.9, recuadro=(320, 320, 350, 350))
+    assert d.descarte_reglas == "pequeño" and d.toca_mano
+    print("OK  modos de verificación (reglas / reglas+clip / clip)")
+
+
 def prueba_margen():
     m, t = MaquinaEstados(margen_s=3.0, estado_inicial=E), Temporizador()
     t_ = simular(m, t, E, 5, 0)
@@ -162,6 +188,7 @@ def prueba_preguntas():
 
 if __name__ == "__main__":
     prueba_clasificacion()
+    prueba_modos_clip()
     prueba_margen()
     prueba_temporizador()
     prueba_preguntas()

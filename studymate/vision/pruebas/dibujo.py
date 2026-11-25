@@ -30,7 +30,10 @@ def dibujar_observacion(frame, obs: Observacion) -> None:
         _rect(frame, m, (200, 120, 255), "mano")
     for d in obs.dispositivos:
         color = (0, 0, 255) if d.cerca_de_mano else (160, 160, 160)
-        texto = f"movil {d.puntuacion:.2f}" + (" EN MANO" if d.cerca_de_mano else f" (descartado: {d.descartado})" if d.descartado else "")
+        texto = f"movil {d.puntuacion:.2f}"
+        if d.prob_clip is not None:
+            texto += f" clip {d.prob_clip:.2f}"
+        texto += " EN MANO" if d.cerca_de_mano else f" (descartado: {d.descartado})" if d.descartado else ""
         _rect(frame, d.recuadro, color, texto)
 
 

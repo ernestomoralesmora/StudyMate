@@ -19,8 +19,12 @@ class Dispositivo:
     recuadro: Recuadro
     cerca_de_mano: bool = False
     # Motivo por el que una detección junto a la mano no cuenta como móvil
-    # ("" si cuenta). Ver descartar_junto_a_mano().
+    # ("" si cuenta): "pequeño" o "pinza" (reglas) o "clip".
     descartado: str = ""
+    # Para comparar las variantes en prueba_detectores:
+    toca_mano: bool = False       # toca el recuadro ampliado de una mano
+    descarte_reglas: str = ""     # lo que dirían las reglas aunque no se usen
+    prob_clip: float | None = None  # probabilidad de móvil según CLIP (None si no se usa)
 
 
 @dataclass
@@ -88,18 +92,30 @@ def descartar_junto_a_mano(movil: Recuadro, obs: Observacion) -> str:
     return ""
 
 
-def marcar_cercania(obs: Observacion, margen: float = config.MARGEN_MANO) -> None:
-    """Marca los dispositivos que tocan el recuadro ampliado de alguna mano.
+def marcar_cercania(
+    obs: Observacion,
+    margen: float = config.MARGEN_MANO,
+    modo: str = config.MODO_VERIFICACION,
+) -> None:
+    """Marca los dispositivos que están en la mano.
 
-    Los que se descartan (ver descartar_junto_a_mano) no cuentan como cerca.
+    Tiene que tocar el recuadro ampliado de alguna mano y pasar la verificación
+    del `modo` (ver MODO_VERIFICACION en config.py). Si el modo usa CLIP pero
+    CLIP no ha dado resultado, no se descarta por CLIP.
     """
     manos = [ampliar(mano, margen) for mano in obs.manos]
-    for dispositivo in obs.dispositivos:
-        toca = any(se_tocan(mano, dispositivo.recuadro) for mano in manos)
-        dispositivo.descartado = (
-            descartar_junto_a_mano(dispositivo.recuadro, obs) if toca else ""
-        )
-        dispositivo.cerca_de_mano = toca and not dispositivo.descartado
+    usa_reglas = modo in ("reglas", "reglas+clip")
+    usa_clip = modo in ("clip", "reglas+clip")
+    for d in obs.dispositivos:
+        d.toca_mano = any(se_tocan(mano, d.recuadro) for mano in manos)
+        d.descarte_reglas = descartar_junto_a_mano(d.recuadro, obs) if d.toca_mano else ""
+        d.descartado = ""
+        if d.toca_mano:
+            if usa_reglas and d.descarte_reglas:
+                d.descartado = d.descarte_reglas
+            elif usa_clip and d.prob_clip is not None and d.prob_clip < config.UMBRAL_CLIP:
+                d.descartado = "clip"
+        d.cerca_de_mano = d.toca_mano and not d.descartado
 
 
 def clasificar(

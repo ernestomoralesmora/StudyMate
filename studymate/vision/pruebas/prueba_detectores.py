@@ -10,7 +10,11 @@ había manos a la vista, y con qué puntuación.
 Para comprobar falsos positivos, haz lo mismo sin móvil (escribir, dibujar...):
 el porcentaje de "móvil en la mano" debería quedarse cerca de 0 %.
 
-Uso:  python -m studymate.vision.pruebas.prueba_detectores [--camara N] [--modelo M]
+Con --clip se carga también el verificador CLIP y, al salir, se comparan en
+los mismos fotogramas tres variantes: a) solo reglas, b) reglas + CLIP y
+c) solo CLIP. --modo elige cuál se usa para dibujar y para "Fotograma sugiere".
+
+Uso:  python -m studymate.vision.pruebas.prueba_detectores [--camara N] [--modelo M] [--clip] [--modo MODO]
 Tecla Q / Esc para salir.
 """
 
@@ -63,7 +67,15 @@ def main() -> None:
     p.add_argument("--registrar-caras", metavar="ARCHIVO.csv",
                    help="guarda, por fotograma, la confianza y el tamaño de cada cara "
                         "detectada (solo números, nunca imágenes)")
+    p.add_argument("--clip", action="store_true",
+                   help="carga CLIP y compara al salir: solo reglas / reglas + CLIP / solo CLIP")
+    p.add_argument("--modo", default=None, choices=["reglas", "reglas+clip", "clip"],
+                   help="variante que se dibuja (por defecto, MODO_VERIFICACION de config.py)")
+    p.add_argument("--umbral-clip", type=float, default=config.UMBRAL_CLIP,
+                   help=f"probabilidad mínima de CLIP para contar como móvil ({config.UMBRAL_CLIP})")
     args = p.parse_args()
+    config.UMBRAL_CLIP = args.umbral_clip
+    modo = args.modo or config.MODO_VERIFICACION
 
     registro_caras = None
     if args.registrar_caras:
@@ -75,9 +87,15 @@ def main() -> None:
         registro = csv.writer(open(args.registrar, "w", newline="", encoding="utf-8"))
         registro.writerow(["t", "puntuacion", "iou_mano", "dentro_de_mano",
                            "area_movil_entre_mano", "aspecto", "lado_corto_entre_ancho_mano",
-                           "pinza", "apertura", "hay_cara"])
+                           "pinza", "apertura", "hay_cara", "reglas", "prob_clip"])
 
-    analizador = Analizador(modelo_movil=args.modelo)
+    if args.clip or "clip" in modo:
+        print("Cargando CLIP (la primera vez descarga ~155 MB)...")
+    analizador = Analizador(modelo_movil=args.modelo, modo_verificacion=modo,
+                            cargar_clip=args.clip or "clip" in modo)
+    # Fotogramas con manos en los que cada variante diría "móvil en la mano".
+    variantes = {"a) solo reglas": 0, "b) reglas + CLIP": 0, "c) solo CLIP": 0}
+    con_clip = 0  # fotogramas con algo junto a la mano que CLIP ha revisado
     inicio = anterior = time.monotonic()
     fps = 0.0
     con_manos = con_movil = 0
@@ -109,18 +127,27 @@ def main() -> None:
                     if en_mano:
                         con_movil += 1
                         puntuaciones.append(max(en_mano))
+                    tocan = [d for d in obs.dispositivos if d.toca_mano]
+                    if tocan and any(d.prob_clip is not None for d in tocan):
+                        con_clip += 1
+                    u = config.UMBRAL_CLIP
+                    clip_ok = lambda d: d.prob_clip is not None and d.prob_clip >= u
+                    variantes["a) solo reglas"] += any(not d.descarte_reglas for d in tocan)
+                    variantes["b) reglas + CLIP"] += any(not d.descarte_reglas and clip_ok(d) for d in tocan)
+                    variantes["c) solo CLIP"] += any(clip_ok(d) for d in tocan)
                     if registro:
-                        for d in obs.dispositivos:
-                            if d.cerca_de_mano:
-                                registro.writerow([f"{ahora - inicio:.2f}", f"{d.puntuacion:.3f}",
-                                                   *_medidas(d.recuadro, obs), int(obs.hay_cara)])
+                        for d in tocan:
+                            registro.writerow([f"{ahora - inicio:.2f}", f"{d.puntuacion:.3f}",
+                                               *_medidas(d.recuadro, obs), int(obs.hay_cara),
+                                               d.descarte_reglas or "ok",
+                                               "" if d.prob_clip is None else f"{d.prob_clip:.3f}"])
 
                 recorte = analizador.dispositivos.recorte_actual
                 if obs.manos and recorte:
                     cv2.rectangle(frame, recorte[:2], recorte[2:], (255, 120, 0), 1)
                 dibujar_observacion(frame, obs)
                 texto(frame, f"Fotograma sugiere: {clasificar(obs).value}", 0)
-                texto(frame, f"{fps:.1f} fps   modelo movil: {args.modelo}", 1,
+                texto(frame, f"{fps:.1f} fps   modelo movil: {args.modelo}   modo: {modo}", 1,
                       (200, 200, 200), 0.5)
                 if es_salir(mostrar("StudyMate - detectores", frame)):
                     break
@@ -144,7 +171,14 @@ def main() -> None:
             for u in (0.3, 0.45, 0.6, 0.75)
         ]
         print("Fotogramas por encima de:  " + "   ".join(partes))
-    print(f"Modelo del móvil: {args.modelo}")
+    print(f"Modelo del móvil: {args.modelo}   ·   variante dibujada: {modo}")
+    if args.clip and con_manos:
+        print(f"\nComparación en los mismos {con_manos} fotogramas con manos "
+              f"(umbral CLIP {config.UMBRAL_CLIP}):")
+        for nombre, n in variantes.items():
+            print(f"  {nombre:<18} móvil en la mano en el {100 * n / con_manos:3.0f} % de los fotogramas")
+        print(f"  (CLIP revisó {con_clip} fotogramas con algo junto a la mano)")
+        print("  Con el móvil en la mano, cuanto más alto mejor; con boli, típex o cartera, cuanto más bajo mejor.")
 
 
 if __name__ == "__main__":
