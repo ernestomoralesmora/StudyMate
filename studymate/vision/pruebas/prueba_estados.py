@@ -121,6 +121,33 @@ def prueba_movil_aparcado():
     v.comprobar(frame)  # lo devuelve
     assert v.estado == SitioMovil.EN_SU_SITIO
 
+    # Lo normal: YOLO no lo ve tumbado en la mesa, pero sí en la mano. Se sigue
+    # mientras se deja y, cuando la mano se aparta, ese es su sitio.
+    v = VigilanteMovil(lambda r: [], activo=True)
+    mano_baja = (500, 360, 600, 470)
+    en_mano = (515, 370, 575, 455)
+    v.seguir_en_mano(frame, [(0.3, en_mano)], [mano_baja])  # puntuación baja: no cuenta
+    assert not v.visto_en_mano
+    for _ in range(2):
+        v.seguir_en_mano(frame, [(0.7, en_mano)], [mano_baja])
+    assert v.visto_en_mano and v.estado == SitioMovil.BUSCANDO
+    for _ in range(4):  # lo suelta, pero la mano sigue encima: aún no
+        v.seguir_en_mano(frame, [], [mano_baja])
+    assert v.estado == SitioMovil.BUSCANDO
+    for _ in range(12):  # la mano sigue encima un rato: al final se fija igualmente
+        v.seguir_en_mano(frame, [], [mano_baja])
+    assert v.estado == SitioMovil.EN_SU_SITIO and v.recuadro == en_mano
+    v2 = VigilanteMovil(lambda r: [], activo=True)
+    for _ in range(2):
+        v2.seguir_en_mano(frame, [(0.7, en_mano)], [mano_baja])
+    for _ in range(4):  # aparta la mano: se fija enseguida
+        v2.seguir_en_mano(frame, [], [(100, 300, 180, 380)])
+    assert v2.estado == SitioMovil.EN_SU_SITIO
+    v2.comprobar(frame)
+    assert v2.estado == SitioMovil.EN_SU_SITIO
+    v2.comprobar(sin_movil); v2.comprobar(sin_movil)
+    assert v2.estado == SitioMovil.FUERA
+
     # Si no aparece al empezar, se vigila solo la mano.
     v = VigilanteMovil(lambda r: [], activo=True)
     for _ in range(30):

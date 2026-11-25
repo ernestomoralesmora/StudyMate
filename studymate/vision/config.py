@@ -53,10 +53,13 @@ MIN_TAMANO_RESPECTO_MANO = 0.40  # área del móvil / área de la mano
 MIN_PINZA = 0.25                 # distancia pulgar-índice / tamaño de la palma
 
 # --- Móvil aparcado (idea de la profesora, ver aparcado.py) -----------------
-# Al empezar, el móvil se deja a la vista y se localiza; luego se vigila su sitio.
+# Al empezar, se enseña el móvil a la cámara y se deja en la mesa; luego se vigila su sitio.
+VECES_EN_MANO_PARA_SEGUIR = 2   # veces que tiene que verse en la mano (puntuación >= UMBRAL_MOVIL)
+PASADAS_MANO_APARTADA = 4       # análisis sin verlo en la mano y con la mano lejos para fijar el sitio
 UMBRAL_APARCADO = 0.30          # puntuación de YOLO para aceptar el móvil sobre la mesa
 VECES_PARA_APARCAR = 3          # tiene que verse en el mismo sitio estas veces...
-INTENTOS_BUSCAR_APARCADO = 30   # ...en como mucho estos análisis (unos 10-15 s)
+INTENTOS_BUSCAR_APARCADO = 30   # ...en como mucho estos análisis (unos 45 s)
+PERIODO_BUSQUEDA_APARCADO_S = 1.5  # cada cuánto se busca en toda la imagen
 LADO_BUSQUEDA_APARCADO = 320    # al buscarlo, la imagen se recorre en cuadros de este lado
 # Si aun así no lo encuentra, en la prueba de cámara se puede marcar a mano (tecla M).
 PERIODO_APARCADO_S = 1.0        # cada cuánto se comprueba el sitio

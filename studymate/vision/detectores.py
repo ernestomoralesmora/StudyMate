@@ -180,7 +180,7 @@ class DetectorDispositivos(threading.Thread):
         self.vigilante = VigilanteMovil(self._motor.detectar, activo=movil_a_la_vista)
         self._ultima_comprobacion = -1e9
 
-    def enviar(self, frame_rgb, zonas: list[Recuadro]) -> None:
+    def enviar(self, frame_rgb, zonas: list[Recuadro], manos: list[Recuadro] | None = None) -> None:
         """Deja el fotograma más reciente para analizarlo en segundo plano.
 
         Aunque no haya zonas (manos o cara), el fotograma sirve para vigilar
@@ -190,7 +190,7 @@ class DetectorDispositivos(threading.Thread):
             return
 
         with self._cerrojo:
-            self._peticion = (frame_rgb, list(zonas))
+            self._peticion = (frame_rgb, list(zonas), list(manos or []))
             self._hay_trabajo.set()
 
     def resultado(self, ahora: float) -> list[Dispositivo]:
@@ -220,19 +220,28 @@ class DetectorDispositivos(threading.Thread):
         finally:
             self._motor.cerrar()
 
-    def _procesar(self, frame_rgb, zonas: list[Recuadro]) -> None:
-        # Móvil aparcado: al empezar se busca en toda la imagen; después se
+    def _procesar(self, frame_rgb, zonas: list[Recuadro], manos: list[Recuadro] | None = None) -> None:
+        encontrados = self._buscar_en_zonas(frame_rgb, zonas) if zonas else []
+
+        # Móvil aparcado: al empezar se sigue en la mano hasta que se deja en la
+        # mesa (y, por si acaso, se busca en toda la imagen); después se
         # comprueba su sitio cada PERIODO_APARCADO_S.
         vigilante = self.vigilante
         ahora = time.monotonic()
         if vigilante.estado.value == "buscando":
-            vigilante.buscar(frame_rgb)
+            vigilante.seguir_en_mano(
+                frame_rgb, [(d.puntuacion, d.recuadro) for d in encontrados], manos or []
+            )
+            # Buscar en toda la imagen es caro (6 cuadros): no en cada pasada,
+            # para que el seguimiento en la mano vaya fluido.
+            if ahora - self._ultima_comprobacion >= config.PERIODO_BUSQUEDA_APARCADO_S:
+                vigilante.buscar(frame_rgb)
+                self._ultima_comprobacion = ahora
         elif vigilante.vigilando and ahora - self._ultima_comprobacion >= config.PERIODO_APARCADO_S:
             vigilante.comprobar(frame_rgb)
             self._ultima_comprobacion = ahora
-        if not zonas:
-            return
 
+    def _buscar_en_zonas(self, frame_rgb, zonas: list[Recuadro]) -> list[Dispositivo]:
         alto, ancho = frame_rgb.shape[:2]
         zona = zonas[self._siguiente_zona % len(zonas)]
         self._siguiente_zona += 1
@@ -259,6 +268,7 @@ class DetectorDispositivos(threading.Thread):
 
         with self._cerrojo:
             self._ultimo = (time.monotonic(), encontrados)
+        return encontrados
 
     def detener(self) -> None:
         self._parar.set()
@@ -330,7 +340,7 @@ class Analizador:
 
         # Si no vemos ninguna mano, buscamos el móvil alrededor de la cara.
         zonas_busqueda = obs.manos + obs.caras[:1]
-        self.dispositivos.enviar(rgb, zonas_busqueda)
+        self.dispositivos.enviar(rgb, zonas_busqueda, obs.manos)
         obs.sitio_movil = self.dispositivos.vigilante.estado
 
         obs.dispositivos = self.dispositivos.resultado(time.monotonic())

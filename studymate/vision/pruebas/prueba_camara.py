@@ -4,8 +4,9 @@ Uso (desde la raíz del repositorio):
     python -m studymate.vision.pruebas.prueba_camara [--camara N] [--permitir-movil] [--modelo M]
                                                      [--movil-a-la-vista]
 
-Con --movil-a-la-vista, al empezar deja el móvil sobre la mesa donde la cámara lo
-vea (por ejemplo, a un lado): se localiza en unos segundos y luego se vigila su sitio.
+Con --movil-a-la-vista, al empezar enseña el móvil a la cámara y déjalo en la mesa,
+donde se vea (por ejemplo, a la izquierda), y aparta la mano: ese queda como su
+sitio y se vigila. Si no funciona, pulsa M y marca el móvil a mano.
 
 Teclas:  Q / Esc = salir   S = sí estaba estudiando   N = no estaba estudiando
          Con --movil-a-la-vista:  M = marcar el móvil a mano   B = buscarlo otra vez
@@ -61,8 +62,12 @@ def main() -> None:
                 sitio = inst.sitio_movil
                 if sitio != SitioMovil.SIN_USAR:
                     v = motor.vigilante
-                    buscando = "Movil: dejalo en la mesa, a la vista..."
-                    if v is not None and v.mejor_busqueda:
+                    buscando = "Movil: ensenalo a la camara y dejalo en la mesa (M = a mano)"
+                    if v is not None and v.visto_en_mano:
+                        buscando = "Movil: visto! Dejalo en la mesa y aparta la mano"
+                        x1, y1, x2, y2 = (int(c) for c in v.ultimo_en_mano)
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 220, 120), 2)
+                    elif v is not None and v.mejor_busqueda:
                         p_mejor, r_mejor = v.mejor_busqueda
                         buscando = (f"Movil: buscando... mejor {p_mejor:.2f} "
                                     f"(minimo {config.UMBRAL_APARCADO:.2f})")

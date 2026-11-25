@@ -4,8 +4,11 @@ Reconocer el móvil en la mano es difícil: la mano tapa la mitad y lo que queda
 parece a un típex o a un boli. Reconocerlo sobre la mesa, entero, es mucho más
 fácil. Así que:
 
-1. Al empezar, el estudiante deja el móvil donde la cámara lo vea y se localiza
-   (varias imágenes seguidas, para no quedarse con una detección suelta).
+1. Al empezar, el estudiante enseña el móvil a la cámara y lo deja en la mesa.
+   En la mano YOLO lo reconoce bien, así que se sigue hasta que la mano lo suelta
+   y se aparta: ese es su sitio. (Tumbado en la mesa y visto desde la webcam,
+   YOLO casi nunca lo reconoce; si aun así lo ve, también vale. Y si nada
+   funciona, se puede marcar a mano.)
 2. Durante la sesión, cada PERIODO_APARCADO_S se mira solo ese sitio:
    - con YOLO en un recorte alrededor del sitio, y
    - comparando el trozo de imagen con el que se guardó al empezar.
@@ -67,6 +70,10 @@ def similitud(gris: np.ndarray, plantilla: np.ndarray, recuadro: Recuadro) -> fl
     return valor if np.isfinite(valor) else -1.0
 
 
+def _toca(a: Recuadro, b: Recuadro) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
 def _recorte_cuadrado(recuadro: Recuadro, ancho: int, alto: int, margen: float) -> tuple[int, int, int, int]:
     x1, y1, x2, y2 = recuadro
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
@@ -92,13 +99,50 @@ class VigilanteMovil:
     ultima_yolo: float = 0.0
     # Lo mejor que se ha visto buscando (para enseñarlo en pantalla y ayudar a colocarlo).
     mejor_busqueda: tuple[float, Recuadro] | None = None
+    # Seguimiento del móvil en la mano mientras se deja en la mesa.
+    ultimo_en_mano: Recuadro | None = None
+    _veces_en_mano: int = 0
+    _sin_mano: int = 0
 
     def __post_init__(self):
         self.estado = SitioMovil.BUSCANDO if self.activo else SitioMovil.SIN_USAR
 
     # --- 1. Localizarlo al empezar ------------------------------------------------
+    @property
+    def visto_en_mano(self) -> bool:
+        return self._veces_en_mano >= config.VECES_EN_MANO_PARA_SEGUIR
+
+    def seguir_en_mano(self, frame_rgb: np.ndarray, en_mano: list[tuple[float, Recuadro]],
+                       manos: list[Recuadro]) -> None:
+        """Sigue el móvil mientras el estudiante lo enseña y lo deja en la mesa.
+
+        `en_mano`: detecciones (puntuación, recuadro) de YOLO alrededor de las manos.
+        Cuando deja de verse en la mano y la mano se ha apartado de ese sitio unas
+        cuantas veces seguidas, el último sitio donde se vio es donde está.
+        """
+        if self.estado != SitioMovil.BUSCANDO:
+            return
+        buenos = [r for p, r in en_mano if p >= config.UMBRAL_MOVIL]
+        if buenos:
+            self._veces_en_mano += 1
+            # Si hay varios, el que está más abajo (más cerca de la mesa).
+            self.ultimo_en_mano = max(buenos, key=lambda r: r[3])
+            self._sin_mano = 0
+            return
+        if not self.visto_en_mano:
+            return
+        zona = ampliar(self.ultimo_en_mano, config.HOLGURA_APARCADO)
+        mano_encima = any(iou(zona, m) > 0 or _toca(zona, m) for m in manos)
+        self._sin_mano += 1
+        necesarios = config.PASADAS_MANO_APARTADA if not mano_encima else 4 * config.PASADAS_MANO_APARTADA
+        if self._sin_mano >= necesarios:
+            self.recuadro = tuple(float(v) for v in self.ultimo_en_mano)
+            self._guardar_plantilla(frame_rgb)
+            self._fallos_seguidos = 0
+            self.estado = SitioMovil.EN_SU_SITIO
+
     def buscar(self, frame_rgb: np.ndarray) -> None:
-        """Analiza una imagen completa mientras se busca el móvil."""
+        """Analiza una imagen completa mientras se busca el móvil sobre la mesa."""
         if self.estado != SitioMovil.BUSCANDO:
             return
         alto, ancho = frame_rgb.shape[:2]
@@ -129,7 +173,8 @@ class VigilanteMovil:
                 self._guardar_plantilla(frame_rgb)
                 self.estado = SitioMovil.EN_SU_SITIO
                 return
-        if self._intentos >= config.INTENTOS_BUSCAR_APARCADO:
+        # Mientras se le está siguiendo en la mano no se da por perdido.
+        if self._intentos >= config.INTENTOS_BUSCAR_APARCADO and not self.visto_en_mano:
             self.estado = SitioMovil.NO_ENCONTRADO
 
     def _guardar_plantilla(self, frame_rgb: np.ndarray) -> None:
@@ -150,6 +195,7 @@ class VigilanteMovil:
 
     def buscar_de_nuevo(self) -> None:
         self._vistos, self._intentos, self._fallos_seguidos = [], 0, 0
+        self.ultimo_en_mano, self._veces_en_mano, self._sin_mano = None, 0, 0
         self.recuadro = self.plantilla = self.zona_plantilla = self.mejor_busqueda = None
         self.estado = SitioMovil.BUSCANDO
 

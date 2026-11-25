@@ -134,8 +134,10 @@ a un típex. Sobre la mesa se ve entero, así que:
 
 1. En el cuestionario se pregunta si vas a dejar el móvil a la vista (si lo tienes
    guardado, solo se vigila la mano, como antes).
-2. Al empezar, deja el móvil sobre la mesa donde la cámara lo vea. En unos segundos se
-   localiza (tiene que verse 5 veces en el mismo sitio).
+2. Al empezar, enseña el móvil a la cámara y déjalo en la mesa donde se vea (por ejemplo,
+   a la izquierda). En la mano YOLO lo reconoce bien: se sigue hasta que lo sueltas y
+   apartas la mano, y ese queda como su sitio. Tumbado en la mesa casi nunca lo
+   reconoce, por eso se hace así. Si falla, en la prueba se puede marcar a mano (tecla M).
 3. Cada segundo se mira solo ese sitio (YOLO + comparar con la imagen del principio).
    - **En su sitio:** lo que parezca un móvil en la mano se ignora (típex, boli...).
    - **Fuera de su sitio** y en la mano: USANDO_MOVIL.
