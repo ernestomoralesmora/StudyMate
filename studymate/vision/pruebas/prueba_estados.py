@@ -148,6 +148,19 @@ def prueba_movil_aparcado():
     v2.comprobar(sin_movil); v2.comprobar(sin_movil)
     assert v2.estado == SitioMovil.FUERA
 
+    # Recuadro marcado grande y móvil pequeño dentro (lo que pasó el 25/11): al
+    # quitarlo, el parecido puede seguir alto, pero el cambio de píxeles lo delata.
+    import cv2
+    mesa = cv2.GaussianBlur(rng.integers(120, 200, (480, 640, 3), dtype=np.uint8), (31, 31), 0)
+    con = mesa.copy()
+    con[360:440, 60:110] = 25
+    v3 = VigilanteMovil(lambda r: [], activo=True)
+    v3.marcar_a_mano(con, (22, 305, 175, 453))
+    v3.comprobar(np.clip(con.astype(int) + 30, 0, 255).astype(np.uint8))  # cambia la luz
+    assert v3.estado == SitioMovil.EN_SU_SITIO and v3.ultimo_cambio < 0.05
+    v3.comprobar(mesa); v3.comprobar(mesa)
+    assert v3.estado == SitioMovil.FUERA and v3.ultimo_cambio > 0.12
+
     # Si no aparece al empezar, se vigila solo la mano.
     v = VigilanteMovil(lambda r: [], activo=True)
     for _ in range(30):

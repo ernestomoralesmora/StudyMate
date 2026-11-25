@@ -76,6 +76,10 @@ LADO_BUSQUEDA_APARCADO = 320    # al buscarlo, la imagen se recorre en cuadros d
 PERIODO_APARCADO_S = 1.0        # cada cuánto se comprueba el sitio
 HOLGURA_APARCADO = 0.25         # cuánto se puede haber movido sin contar como "fuera"
 SIMILITUD_APARCADO = 0.60       # parecido mínimo con la imagen guardada al empezar
+# Además del parecido, qué parte de la zona marcada ha cambiado: si el recuadro
+# es grande y el móvil pequeño dentro, el parecido apenas baja al quitarlo.
+DIFERENCIA_PIXEL = 25           # diferencia de gris (0-255) para contar un píxel como cambiado
+CAMBIO_MAXIMO_APARCADO = 0.12   # si cambia más de esta fracción de la zona, no está
 FALLOS_PARA_FUERA = 2           # comprobaciones seguidas sin verlo para decir "fuera"
 # Si el móvil no está en su sitio ni en la mano, se pregunta "¿Has cogido el
 # móvil?" tras estos segundos (más rápido que otras dudas, que esperan 15 s).

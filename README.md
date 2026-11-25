@@ -139,7 +139,9 @@ a un típex. Sobre la mesa se ve entero, así que:
    un recuadro sobre él. Con Enter empiezas antes; si no, la sesión empieza sola a los 30 s
    (si no has marcado el móvil, se vigila solo la mano). Tumbado en la mesa YOLO casi
    nunca reconoce el móvil, por eso el sitio lo marca el estudiante.
-3. Cada segundo se mira solo ese sitio (YOLO + comparar con la imagen del principio).
+3. Cada segundo se mira solo ese sitio: se compara con la imagen del principio (parecido)
+   y se mide qué parte de la zona ha cambiado (sirve aunque el recuadro sea más grande
+   que el móvil). Conviene rodear el móvil ajustado.
    - **En su sitio:** lo que parezca un móvil en la mano se ignora (típex, boli...).
    - **Fuera de su sitio** y en la mano: USANDO_MOVIL.
    - **Fuera de su sitio** y no se ve: a los 4 s suena un aviso y pregunta "¿Has cogido el móvil?".

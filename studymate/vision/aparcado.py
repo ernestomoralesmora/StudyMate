@@ -70,6 +70,25 @@ def similitud(gris: np.ndarray, plantilla: np.ndarray, recuadro: Recuadro) -> fl
     return valor if np.isfinite(valor) else -1.0
 
 
+def cambio(gris: np.ndarray, referencia: np.ndarray, recuadro: Recuadro) -> float:
+    """Fracción (0-1) de la zona marcada que ha cambiado respecto a la referencia.
+
+    El parecido (similitud) se queda alto si el recuadro marcado es grande y el
+    móvil ocupa poco de él (medido el 25/11: 0,73-0,76 con el móvil ya en la
+    mano). Esto mira píxel a píxel: si el móvil ocupa un 30 % del recuadro y se
+    quita, cambia en torno a un 30 %. Se descuenta el cambio de brillo general
+    (la webcam se ajusta sola) y se suaviza para no contar el ruido.
+    """
+    x1, y1, x2, y2 = (int(round(v)) for v in recuadro)
+    actual = gris[y1:y2, x1:x2]
+    if actual.shape != referencia.shape or actual.size == 0:
+        return 1.0
+    a = cv2.GaussianBlur(actual, (5, 5), 0).astype(np.float32)
+    r = cv2.GaussianBlur(referencia, (5, 5), 0).astype(np.float32)
+    diferencia = np.abs((a - a.mean()) - (r - r.mean()))
+    return float((diferencia > config.DIFERENCIA_PIXEL).mean())
+
+
 def _toca(a: Recuadro, b: Recuadro) -> bool:
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
@@ -92,6 +111,8 @@ class VigilanteMovil:
     recuadro: Recuadro | None = None
     plantilla: np.ndarray | None = None
     zona_plantilla: Recuadro | None = None
+    referencia: np.ndarray | None = None  # la zona marcada tal cual (para medir el cambio)
+    ultimo_cambio: float = 0.0
     _vistos: list[Recuadro] = field(default_factory=list)
     _intentos: int = 0
     _fallos_seguidos: int = 0
@@ -184,6 +205,9 @@ class VigilanteMovil:
         x1, y1, x2, y2 = max(0, x1), max(0, y1), min(ancho, x2), min(alto, y2)
         self.zona_plantilla = (x1, y1, x2, y2)
         self.plantilla = gris[y1:y2, x1:x2].copy()
+        rx1, ry1, rx2, ry2 = (int(round(v)) for v in self.recuadro)
+        self.recuadro = (max(0, rx1), max(0, ry1), min(ancho, rx2), min(alto, ry2))
+        self.referencia = gris[self.recuadro[1]:self.recuadro[3], self.recuadro[0]:self.recuadro[2]].copy()
 
     def marcar_a_mano(self, frame_rgb: np.ndarray, recuadro: Recuadro) -> None:
         """Si YOLO no lo encuentra, el estudiante señala dónde está el móvil.
@@ -197,6 +221,7 @@ class VigilanteMovil:
         self._vistos, self._intentos, self._fallos_seguidos = [], 0, 0
         self.ultimo_en_mano, self._veces_en_mano, self._sin_mano = None, 0, 0
         self.recuadro = self.plantilla = self.zona_plantilla = self.mejor_busqueda = None
+        self.referencia = None
         self.estado = SitioMovil.BUSCANDO
 
     # --- 2. Comprobar que sigue ahí ---------------------------------------------
@@ -212,9 +237,14 @@ class VigilanteMovil:
              and iou((bx1 + x1, by1 + y1, bx2 + x1, by2 + y1), self.recuadro) >= 0.3),
             default=0.0,
         )
-        self.ultima_similitud = similitud(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY), self.plantilla, self.zona_plantilla)
-        presente = (self.ultima_yolo >= config.UMBRAL_MOVIL_DUDOSO
-                    or self.ultima_similitud >= config.SIMILITUD_APARCADO)
+        gris = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+        self.ultima_similitud = similitud(gris, self.plantilla, self.zona_plantilla)
+        self.ultimo_cambio = cambio(gris, self.referencia, self.recuadro)
+        # Sigue ahí si YOLO lo ve, o si la imagen se parece y apenas ha cambiado.
+        presente = self.ultima_yolo >= config.UMBRAL_MOVIL_DUDOSO or (
+            self.ultima_similitud >= config.SIMILITUD_APARCADO
+            and self.ultimo_cambio <= config.CAMBIO_MAXIMO_APARCADO
+        )
         self.registrar(presente)
 
     def registrar(self, presente: bool) -> None:

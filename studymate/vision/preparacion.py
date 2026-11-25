@@ -47,5 +47,5 @@ class Preparacion:
         if not movil_a_la_vista:
             return f"Preparate. Empieza en {segundos} s (Enter = empezar ya)"
         if self.movil_marcado is None:
-            return f"Deja el movil en la mesa y marcalo con el raton ({segundos} s)"
+            return f"Deja el movil en la mesa y rodealo con el raton, ajustado ({segundos} s)"
         return f"Movil marcado. Enter = empezar ya (empieza sola en {segundos} s)"

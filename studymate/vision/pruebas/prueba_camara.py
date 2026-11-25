@@ -58,7 +58,7 @@ def main() -> None:
         registro = csv.writer(archivo_registro)
         registro.writerow(["t", "estado", "sitio_movil", "candidato", "caras", "manos",
                            "movil_detectado", "visto_en_mano", "mejor_busqueda",
-                           "yolo_sitio", "parecido", "recuadro_sitio"])
+                           "yolo_sitio", "parecido", "recuadro_sitio", "cambio"])
 
     permitidas = frozenset({"cell phone"}) if args.permitir_movil else frozenset()
     motor = MotorDeteccion(clases_permitidas=permitidas, indice_camara=args.camara,
@@ -126,7 +126,8 @@ def main() -> None:
                         SitioMovil.FUERA: "Movil: NO esta en su sitio",
                     }
                     if v is not None and sitio in (SitioMovil.EN_SU_SITIO, SitioMovil.FUERA):
-                        avisos[sitio] += f"  (yolo {v.ultima_yolo:.2f}, parecido {v.ultima_similitud:.2f})"
+                        avisos[sitio] += (f"  (parecido {v.ultima_similitud:.2f}, "
+                                          f"cambio {100 * v.ultimo_cambio:.0f} %)")
                     texto(frame, avisos[sitio], 5, (255, 220, 120), 0.5)
                 recuadro = motor.recuadro_aparcado
                 if recuadro is not None and sitio in (SitioMovil.EN_SU_SITIO, SitioMovil.FUERA):
@@ -170,6 +171,7 @@ def main() -> None:
                         f"{v.mejor_busqueda[0]:.2f}" if v and v.mejor_busqueda else "",
                         f"{v.ultima_yolo:.2f}" if v else "", f"{v.ultima_similitud:.2f}" if v else "",
                         "" if not (v and v.recuadro) else " ".join(f"{c:.0f}" for c in v.recuadro),
+                        f"{v.ultimo_cambio:.2f}" if v else "",
                     ])
                     archivo_registro.flush()
 
