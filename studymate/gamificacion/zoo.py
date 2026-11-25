@@ -24,7 +24,8 @@ from .pecera import cargar as cargar_pecera
 ARCHIVO = "zoo.json"
 MAX_RECINTOS = 10
 MAX_ANIMALES = 9
-SALUD_INICIAL = 60
+SALUD_INICIAL = 50
+ANIMALES_INICIALES = 2   # cada recinto nuevo empieza con algunos animales
 CAMBIO_SALUD = {"muy_buena": 15, "regular": 0, "mala": -20}
 ANIMALES_POR_NIVEL = 3
 MAX_HISTORIAL = 100
@@ -65,7 +66,7 @@ class Recinto:
     asignatura: str
     especie: str
     salud: int = SALUD_INICIAL
-    animales: int = 0
+    animales: int = ANIMALES_INICIALES
     racha_buenas: int = 0
     sesiones: list[dict] = field(default_factory=list)  # {fecha, calificacion, puntuacion, minutos}
     temas: list[str] = field(default_factory=list)      # temas de la asignatura (los elige el estudiante)
@@ -246,6 +247,13 @@ def cargar(carpeta: Path = CARPETA_DATOS) -> Zoo:
             validos = Recinto.__dataclass_fields__
             recintos = [Recinto(**{k: v for k, v in r.items() if k in validos})
                         for r in datos.get("recintos", []) if r.get("especie") in ANIMALES]
+            for r in recintos:
+                # Recintos creados con la versión anterior y aún sin sesiones: se ponen
+                # como los nuevos (salud 50 y algunos animales de partida).
+                if not r.sesiones:
+                    if r.salud == 60:
+                        r.salud = SALUD_INICIAL
+                    r.animales = max(r.animales, ANIMALES_INICIALES)
             return Zoo(recintos[:MAX_RECINTOS], datos.get("nombre") or NOMBRE_POR_DEFECTO)
         except (ValueError, TypeError, AttributeError):
             return Zoo()

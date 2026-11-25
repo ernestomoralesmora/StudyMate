@@ -121,7 +121,9 @@ def apagar(figuras: list[dict], cuanto: float) -> list[dict]:
 
 def construir_recinto(recinto: Recinto, t: float = 0.0) -> list[dict]:
     animal = recinto.animal
-    k = max(0, min(100, recinto.salud)) / 100
+    # Con 70 o más de salud, colores plenos; por debajo se van apagando (un recinto
+    # nuevo, con 50, se ve con color, no seco).
+    k = max(0.0, min(1.0, recinto.salud / 70))
     figs: list[dict] = [{"tipo": "degradado", "x": 0, "y": 0, "w": ANCHO, "h": ALTO,
                          "arriba": _mezcla(SECO[0], animal.cielo[0], k),
                          "abajo": _mezcla(SECO[1], animal.cielo[1], k)}]

@@ -16,7 +16,7 @@ from ..zoo_widget import AnimalIcono, RecintoWidget
 
 
 def color_salud(salud: int) -> str:
-    return estilo.ACENTO if salud >= 60 else estilo.DUDOSO if salud >= 30 else estilo.MOVIL
+    return estilo.ACENTO if salud >= 50 else estilo.DUDOSO if salud >= 30 else estilo.MOVIL
 
 
 def horas(minutos: float) -> str:

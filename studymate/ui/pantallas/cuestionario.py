@@ -100,8 +100,6 @@ class PantallaCuestionario(Pagina):
         fila_archivos = QHBoxLayout()
         fila_archivos.setContentsMargins(0, 0, 0, 0)
         fila_archivos.addWidget(boton("Subir apuntes (PDF, Word o texto)…", "primario", self._subir))
-        for texto, valor in (("Marcar todos", True), ("Ninguno", False)):
-            fila_archivos.addWidget(boton(texto, None, lambda _=False, v=valor: self._marcar_apuntes(v)))
         fila_archivos.addStretch()
         self.apuntes = QPlainTextEdit()
         self.apuntes.setPlaceholderText("O pega aquí un texto solo para esta sesión (opcional).")

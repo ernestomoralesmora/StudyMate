@@ -73,18 +73,17 @@ def main() -> None:
 
     print("\nCrecer y decrecer")
     r = zoo.recinto("matemáticas")
-    ok(r.salud == 60 and r.animales == 0 and r.nivel == 1, "un recinto nuevo empieza vacío, nivel 1")
-    z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=58)
-    ok(r.animales == 1 and r.salud == 75, "sesión muy buena: +1 animal y +15 de salud")
+    ok(r.salud == 50 and r.animales == 2 and r.nivel == 1, "un recinto nuevo empieza con 2 animales y 50 de salud")
+    cambios = z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=58)
+    ok(r.animales == 3 and r.salud == 65 and "nivel 2" in cambios[0], "muy buena: +1 animal y +15; con 3, nivel 2")
     z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=55)
-    cambios = z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=55)
-    ok(r.animales == 3 and r.nivel == 2 and "nivel 2" in cambios[0], "con 3 animales sube al nivel 2")
-    ok(r.racha_buenas == 3, "racha de 3 muy buenas")
+    z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=55)
+    ok(r.animales == 5 and r.racha_buenas == 3, "racha de 3 muy buenas")
     z.aplicar_sesion(zoo, "Matemáticas", regular, minutos=45)
-    ok(r.animales == 3 and r.racha_buenas == 0, "regular: igual, pero corta la racha")
+    ok(r.animales == 5 and r.racha_buenas == 0, "regular: igual, pero corta la racha")
     z.aplicar_sesion(zoo, "Matemáticas", mala, minutos=25)
-    ok(r.animales == 2 and r.salud == 80, "mala: se va un animal y −20 de salud")
-    ok(zoo.recinto("Diseño de Sistemas Interactivos").animales == 0, "solo cambia el recinto de esa asignatura")
+    ok(r.animales == 4 and r.salud == 75, "mala: se va un animal y −20 de salud")
+    ok(zoo.recinto("Diseño de Sistemas Interactivos").animales == 2, "solo cambia el recinto de esa asignatura")
     z.aplicar_sesion(zoo, "Matemáticas", corta, minutos=1)
     ok(len(r.sesiones) == 5, "una sesión demasiado corta no cuenta")
     ok(r.minutos == 238 and [s["calificacion"] for s in r.sesiones][-1] == "mala", "guarda el avance de cada sesión")
@@ -97,6 +96,11 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         carpeta = Path(tmp)
         ok(z.cargar(carpeta).recintos == [], "sin archivos, zoo vacío")
+        (carpeta / z.ARCHIVO).write_text(json.dumps({"recintos": [
+            {"asignatura": "Física", "especie": "buho", "salud": 60, "animales": 0}]}), encoding="utf-8")
+        viejo = z.cargar(carpeta).recinto("Física")
+        ok(viejo.salud == 50 and viejo.animales == 2, "los recintos de antes sin sesiones se ponen como los nuevos")
+        (carpeta / z.ARCHIVO).unlink()
         pecera = pc.EstadoPecera.nueva()
         pecera.salud, pecera.racha_buenas = 85, 2
         pecera.peces += [pc.Pez(*pc.ESPECIES[0], nacido="2026-11-20")] * 2
