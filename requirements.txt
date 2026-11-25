@@ -10,3 +10,6 @@ onnxruntime>=1.20
 
 # Fase 2: LLM (preguntas tipo test y plan de bloques) con Groq
 groq==1.7.0
+
+# Fase 3: interfaz (de momento, la pecera del panel principal)
+PySide6>=6.7
