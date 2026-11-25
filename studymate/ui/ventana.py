@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 from studymate import usuarios as us
 from studymate.gamificacion import pecera as pc
 from studymate.gamificacion import zoo as z
-from studymate.llm.apuntes import para_plan, para_test
+from studymate.llm.apuntes import para_plan, para_test, unir
 from studymate.llm.cliente_groq import consultar_groq
 from studymate.llm.cuestionario import PerfilSesion
 from studymate.llm.plan import Plan, generar_plan, plan_basico
@@ -41,6 +41,8 @@ from .pantallas.descanso import PantallaDescanso
 from .pantallas.historial import PantallaHistorial
 from .pantallas.inicio import PantallaInicio
 from .pantallas.plan import PantallaPlan
+from .pantallas.preparar_test import PantallaPrepararTest
+from .selector_apuntes import nombre_tema
 from .pantallas.preparacion import PantallaPreparacion
 from .pantallas.resumen import PantallaResumen
 from .pantallas.sesion import PantallaSesion
@@ -64,6 +66,7 @@ class VentanaPrincipal(QMainWindow):
         self.carpeta = None           # carpeta de datos del usuario que ha entrado
         self.asignatura = ""          # asignatura de la sesión (la del animal elegido)
         self.perfil: PerfilSesion | None = None
+        self.test_libre = False       # True: test directo, sin sesión de estudio
         self.apuntes = ""
         self.modo_prueba = False
         self.plan: Plan | None = None
@@ -80,6 +83,7 @@ class VentanaPrincipal(QMainWindow):
             "acceso": PantallaAcceso(self),
             "bienvenida": PantallaBienvenida(self),
             "elegir": PantallaElegir(self),
+            "preparar_test": PantallaPrepararTest(self),
             "inicio": PantallaInicio(self),
             "cuestionario": PantallaCuestionario(self),
             "plan": PantallaPlan(self),
@@ -130,7 +134,34 @@ class VentanaPrincipal(QMainWindow):
     def elegir_asignatura(self, asignatura: str) -> None:
         """Al elegir el animal de una asignatura se abre su cuestionario."""
         self.asignatura = asignatura
+        self.test_libre = False
         self.ir("cuestionario")
+
+    # --- Test directo (sin sesión de estudio) ---------------------------------------------
+    def preparar_test_libre(self, asignatura: str) -> None:
+        self.asignatura = asignatura
+        self.ir("preparar_test")
+
+    def empezar_test_libre(self, elegidos: list[tuple[str, str]]) -> None:
+        """Pide las preguntas sobre los apuntes elegidos y abre el test."""
+        self.test_libre = True
+        asignatura = self.asignatura
+        temas = [nombre_tema(n) for n, _ in elegidos]
+        texto = f"Asignatura: {asignatura}\n"
+        if temas:
+            texto += f"Temas: {', '.join(temas)}\n\n" + para_test(unir("", elegidos), asignatura, " ".join(temas))
+        else:
+            texto += "\nNo hay apuntes: pregunta por los conceptos básicos de esta asignatura."
+        self._preguntas["libre"] = ("cargando", None)
+        self._lanzar(lambda: generar_preguntas(texto, consultar_groq), "libre",
+                     self._preguntas_listas, self._preguntas_fallo)
+        self.ir("test")
+
+    def titulo_test(self) -> str:
+        if self.test_libre:
+            return f"Test de {self.asignatura}"
+        c = self.controlador
+        return f"Test del bloque {c.indice + 1} · {c.bloque.tema}"
 
     # --- Cuestionario y plan -----------------------------------------------------------
     def cuestionario_listo(self, perfil: PerfilSesion, apuntes: str, modo_prueba: bool) -> None:
@@ -218,6 +249,11 @@ class VentanaPrincipal(QMainWindow):
             self._terminar()
 
     def test_terminado(self, aciertos: int, total: int) -> None:
+        if self.test_libre:  # el test directo no es una sesión: no cambia el zoo
+            self.test_libre = False
+            self._preguntas.pop("libre", None)
+            self.ir("inicio")
+            return
         if self.controlador is not None and self.controlador.fase == Fase.TEST:
             self.controlador.terminar_test(aciertos, total)
             self._cambio_fase()
@@ -289,6 +325,8 @@ class VentanaPrincipal(QMainWindow):
             self.paginas["test"].actualizar_preguntas()
 
     def preguntas_del_bloque(self) -> tuple[str, object]:
+        if self.test_libre:
+            return self._preguntas.get("libre", ("error", "No se pidieron preguntas."))
         indice = self.controlador.indice
         return self._preguntas.get(indice, ("error", "No se pidieron preguntas para este bloque."))
 

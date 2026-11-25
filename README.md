@@ -49,6 +49,9 @@ Recorrido:
    **plan** → **preparación** de 30 s (marcar el móvil) → **sesión** por bloques (estudio →
    test → descanso) → **resumen** (nota, autocrítica y su recinto) → vuelta al zoo.
 
+5. **Hacer un test** (botón de cada asignatura): se eligen sus apuntes y el asistente prepara
+   10 preguntas sobre ellos, sin sesión de estudio ni cámara (no cambia el zoo).
+
 Cada asignatura es independiente: sus temas, sus sesiones, su avance y sus animales solo
 cambian con sus propias sesiones. El **historial** se puede ver por asignatura.
 

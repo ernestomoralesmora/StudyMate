@@ -57,7 +57,7 @@ ANCHO_TARJETA = 300
 
 
 class TarjetaRecinto(QFrame):
-    def __init__(self, recinto: z.Recinto, al_quitar, al_estudiar):
+    def __init__(self, recinto: z.Recinto, al_quitar, al_estudiar, al_test):
         super().__init__()
         self.setObjectName("tarjeta")
         self.setFixedWidth(ANCHO_TARJETA)  # tamaño fijo: no se estiran aunque haya pocas
@@ -101,13 +101,16 @@ class TarjetaRecinto(QFrame):
         fila_avance.addWidget(etiqueta(resumen, "nota", ajustar=False))
         cuerpo.addLayout(fila_avance)
         cuerpo.addWidget(BarrasAvance(r.sesiones))
-        acciones = QHBoxLayout()
         estudiar = boton("Estudiar", "primario", lambda: al_estudiar(r.asignatura))
         estudiar.setAccessibleName(f"Estudiar {r.asignatura}")
+        test = boton("Hacer un test", None, lambda: al_test(r.asignatura))
+        test.setAccessibleName(f"Hacer un test de {r.asignatura}")
         quitar = boton("Quitar", None, lambda: al_quitar(r))
         quitar.setAccessibleName(f"Quitar {r.asignatura} del zoo")
-        acciones.addWidget(estudiar, 1)
+        acciones = QHBoxLayout()
+        acciones.addWidget(test, 1)
         acciones.addWidget(quitar)
+        cuerpo.addWidget(estudiar)
         cuerpo.addLayout(acciones)
         capa.addLayout(cuerpo)
 
@@ -143,11 +146,9 @@ class PantallaInicio(Pagina):
         desplazable.setWidgetResizable(True)
         desplazable.setWidget(self.contenido)
 
-        self.empezar = boton("Nueva sesión de estudio", "primario", lambda: ventana.ir("elegir"))
-        self.empezar.setMinimumHeight(56)
         self.mensaje = etiqueta("")
-        acciones = tarjeta(self.mensaje, self.empezar,
-                           boton("Añadir una asignatura", None, self._anadir),
+        self.anadir = boton("Añadir una asignatura", None, self._anadir)
+        acciones = tarjeta(self.mensaje, self.anadir,
                            boton("Ver el historial", None, lambda: ventana.ir("historial")))
 
         self.cifras = {}
@@ -212,7 +213,7 @@ class PantallaInicio(Pagina):
             self.ultima_titulo.setStyleSheet(f"color: {estilo.COLOR_CALIFICACION[cal]}; font-size: 18px;")
             consejos = resultado.mejorar or resultado.bien
             self.ultima_texto.setText("\n".join(f"•  {c}" for c in consejos[:3]))
-        self.empezar.setFocus()
+        self.anadir.setFocus()
 
     def _pintar_recintos(self, zoo: z.Zoo) -> None:
         while self.rejilla.count():
@@ -230,7 +231,8 @@ class PantallaInicio(Pagina):
             self.rejilla.addWidget(vacio, 0, 0)
             self.rejilla.setRowStretch(1, 1)
             return
-        self.tarjetas = [TarjetaRecinto(r, self._quitar, self.ventana.elegir_asignatura) for r in zoo.recintos]
+        self.tarjetas = [TarjetaRecinto(r, self._quitar, self.ventana.elegir_asignatura,
+                                        self.ventana.preparar_test_libre) for r in zoo.recintos]
         self._recolocar()
 
     def _recolocar(self) -> None:

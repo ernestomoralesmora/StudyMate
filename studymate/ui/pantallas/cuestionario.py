@@ -9,16 +9,13 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QRadioButt
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
-from studymate.llm.apuntes import BibliotecaApuntes, ErrorApuntes, unir
+from studymate.llm.apuntes import unir
 from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion
 
 from ..comun import Pagina, boton, etiqueta, tarjeta
+from ..selector_apuntes import SelectorApuntes, nombre_tema
 from ..zoo_widget import AnimalIcono
 
-
-def nombre_tema(archivo: str) -> str:
-    """«E.04.01_Testing_ES_v1.15.pdf» -> «E.04.01 Testing ES v1.15» (nombre del tema en el plan)."""
-    return " ".join(Path(archivo).stem.replace("_", " ").split())[:80] or archivo
 
 
 def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
@@ -69,21 +66,8 @@ class PantallaCuestionario(Pagina):
         fila.addWidget(self.con_tablet)
         self.a_la_vista = QCheckBox("Dejaré el móvil sobre la mesa, donde lo vea la cámara")
         self.con_test = QCheckBox("Quiero un test de 10 preguntas al final de cada bloque")
-        # Apuntes guardados de ESTA asignatura: se suben una vez y en cada sesión se
-        # marcan los que se quieren usar. Y, si se quiere, texto pegado solo para hoy.
-        self.casillas_apuntes: list[tuple[QCheckBox, str]] = []  # (casilla, id del documento)
-        self.caja_lista_apuntes = QWidget()
-        self.capa_lista_apuntes = QVBoxLayout(self.caja_lista_apuntes)
-        self.capa_lista_apuntes.setContentsMargins(0, 0, 0, 0)
-        self.capa_lista_apuntes.setSpacing(6)
-        self.error_archivos = etiqueta("", "error")
-        self.error_archivos.hide()
-        fila_archivos = QHBoxLayout()
-        fila_archivos.setContentsMargins(0, 0, 0, 0)
-        fila_archivos.addWidget(boton("Subir apuntes (PDF, Word o texto)…", "primario", self._subir))
-        for texto, valor in (("Marcar todos", True), ("Ninguno", False)):
-            fila_archivos.addWidget(boton(texto, None, lambda _=False, v=valor: self._marcar_apuntes(v)))
-        fila_archivos.addStretch()
+        # Apuntes guardados de ESTA asignatura (se marcan los de hoy) y texto pegado solo para hoy.
+        self.selector = SelectorApuntes()
         self.apuntes = QPlainTextEdit()
         self.apuntes.setPlaceholderText("O pega aquí un texto solo para esta sesión (opcional).")
         self.apuntes.setFixedHeight(70)
@@ -91,9 +75,7 @@ class PantallaCuestionario(Pagina):
         capa_apuntes = QVBoxLayout(caja_apuntes)
         capa_apuntes.setContentsMargins(0, 0, 0, 0)
         capa_apuntes.setSpacing(8)
-        capa_apuntes.addLayout(fila_archivos)
-        capa_apuntes.addWidget(self.error_archivos)
-        capa_apuntes.addWidget(self.caja_lista_apuntes)
+        capa_apuntes.addWidget(self.selector)
         capa_apuntes.addWidget(self.apuntes)
         self.modo_prueba = QCheckBox("Modo prueba: cada minuto del plan dura 10 segundos")
         self.error = etiqueta("", "error")
@@ -151,72 +133,6 @@ class PantallaCuestionario(Pagina):
         capa.addWidget(self.error)
         capa.addLayout(botones)
 
-    def _biblioteca(self) -> BibliotecaApuntes:
-        return BibliotecaApuntes(self.ventana.carpeta, self.ventana.asignatura)
-
-    def _subir(self) -> None:
-        rutas, _ = QFileDialog.getOpenFileNames(
-            self, "Elige tus apuntes", str(Path.home()),
-            "Apuntes (*.pdf *.docx *.txt *.md);;PDF (*.pdf);;Word (*.docx);;Texto (*.txt *.md)",
-        )
-        if not rutas:
-            return
-        biblioteca = self._biblioteca()
-        marcados = self._apuntes_marcados()
-        errores = []
-        QApplication.setOverrideCursor(Qt.WaitCursor)  # un PDF largo tarda unos segundos
-        try:
-            for ruta in rutas:
-                try:
-                    marcados.add(biblioteca.anadir(ruta).id)  # los recién subidos, marcados
-                except ErrorApuntes as error:
-                    errores.append(str(error))
-        finally:
-            QApplication.restoreOverrideCursor()
-        self.error_archivos.setText("\n".join(errores))
-        self.error_archivos.setVisible(bool(errores))
-        self._mostrar_apuntes(marcados)
-
-    def _apuntes_marcados(self) -> set[str]:
-        return {id_ for casilla, id_ in self.casillas_apuntes if casilla.isChecked()}
-
-    def _marcar_apuntes(self, valor: bool) -> None:
-        for casilla, _ in self.casillas_apuntes:
-            casilla.setChecked(valor)
-
-    def _quitar_apunte(self, id_documento: str, nombre: str) -> None:
-        respuesta = QMessageBox.question(
-            self, "Quitar apuntes", f"¿Quitar «{nombre}» de los apuntes de {self.ventana.asignatura}? "
-            "Tendrías que volver a subirlo para usarlo.")
-        if respuesta != QMessageBox.Yes:
-            return
-        marcados = self._apuntes_marcados() - {id_documento}
-        self._biblioteca().quitar(id_documento)
-        self._mostrar_apuntes(marcados)
-
-    def _mostrar_apuntes(self, marcados: set[str]) -> None:
-        while self.capa_lista_apuntes.count():
-            item = self.capa_lista_apuntes.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self.casillas_apuntes = []
-        documentos = self._biblioteca().documentos()
-        if not documentos:
-            self.capa_lista_apuntes.addWidget(etiqueta("Esta asignatura aún no tiene apuntes guardados.", "nota"))
-        for d in documentos:
-            fila = QWidget()
-            capa = QHBoxLayout(fila)
-            capa.setContentsMargins(0, 0, 0, 0)
-            fecha = d.subido[8:10] + "/" + d.subido[5:7]
-            casilla = QCheckBox(f"{d.nombre}  ·  {max(1, d.caracteres // 1000)} mil caracteres  ·  subido el {fecha}")
-            casilla.setChecked(d.id in marcados)
-            self.casillas_apuntes.append((casilla, d.id))
-            quitar = boton("Quitar", None, lambda _=False, i=d.id, n=d.nombre: self._quitar_apunte(i, n))
-            quitar.setAccessibleName(f"Quitar {d.nombre} de los apuntes")
-            capa.addWidget(casilla, 1)
-            capa.addWidget(quitar)
-            self.capa_lista_apuntes.addWidget(fila)
-
     def _recinto(self) -> z.Recinto | None:
         return z.cargar(self.ventana.carpeta).recinto(self.ventana.asignatura)
 
@@ -236,17 +152,16 @@ class PantallaCuestionario(Pagina):
         self.con_test.setChecked(u.get("con_test", True))
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
         self.apuntes.clear()
-        self.error_archivos.hide()
-        guardados = {d.id for d in self._biblioteca().documentos()}
-        anteriores = set(u.get("apuntes", [])) & guardados
-        self._mostrar_apuntes(anteriores or guardados)  # la primera vez, todos marcados
+        # Se marcan los de la última sesión de esta asignatura (la primera vez, todos).
+        anteriores = set(u["apuntes"]) if u.get("apuntes") else None
+        self.selector.cargar(self.ventana.carpeta, recinto.asignatura, anteriores)
         self.error.setText("")
         self.tiempo.setFocus()
 
     def _enviar(self) -> None:
         asignatura = self.ventana.asignatura
         # Lo que se estudia hoy son los apuntes marcados: cada archivo es un tema del plan.
-        elegidos = self._biblioteca().elegidos(sorted(self._apuntes_marcados()))
+        elegidos = self.selector.elegidos()
         pegado = self.apuntes.toPlainText().strip()
         if not elegidos and not pegado:
             self.error.setText("Marca los apuntes que vas a estudiar hoy (o sube alguno, o pega un texto).")
@@ -276,7 +191,7 @@ class PantallaCuestionario(Pagina):
             "conocimiento_previo": perfil.conocimiento_previo,
             "dispositivos_permitidos": perfil.dispositivos_permitidos,
             "movil_a_la_vista": perfil.movil_a_la_vista, "con_test": perfil.con_test,
-            "apuntes": sorted(self._apuntes_marcados()),
+            "apuntes": sorted(self.selector.marcados()),
         }
         z.guardar(zoo, self.ventana.carpeta)
         self.ventana.cuestionario_listo(perfil, unir(pegado, elegidos),

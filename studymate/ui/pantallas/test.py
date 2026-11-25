@@ -63,8 +63,8 @@ class PantallaTest(Pagina):
 
     # --- Carga de las preguntas (se generan en segundo plano al empezar el bloque)
     def al_mostrar(self) -> None:
-        c = self.ventana.controlador
-        self.titulo.setText(f"Test del bloque {c.indice + 1} · {c.bloque.tema}")
+        self.titulo.setText(self.ventana.titulo_test())
+        self.saltar.setText("Salir del test" if self.ventana.test_libre else "Saltar el test")
         self.preguntas, self.respuestas, self.actual = [], [], 0
         self.respondida = self.terminado = False
         self.actualizar_preguntas()
