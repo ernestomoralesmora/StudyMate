@@ -50,7 +50,7 @@ Recorrido:
    test → descanso) → **resumen** (nota, autocrítica y su recinto) → vuelta al zoo.
 
 5. **Hacer un test** (botón de cada asignatura): se eligen sus apuntes y el asistente prepara
-   10 preguntas sobre ellos, sin sesión de estudio ni cámara. Su nota cambia el zoo
+   10 preguntas solo sobre esos temas (hay que marcar al menos uno), sin sesión ni cámara. Su nota cambia el zoo
    igual que la de cualquier test.
 
 Cada asignatura es independiente: sus temas, sus sesiones, su avance y sus animales solo

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 from studymate import usuarios as us
 from studymate.gamificacion import pecera as pc
 from studymate.gamificacion import zoo as z
-from studymate.llm.apuntes import para_plan, para_test, unir
+from studymate.llm.apuntes import MAX_TEST, para_plan, para_test, seleccionar, unir
 from studymate.llm.cliente_groq import consultar_groq
 from studymate.llm.cuestionario import PerfilSesion
 from studymate.llm.plan import Plan, generar_plan, plan_basico
@@ -142,15 +142,19 @@ class VentanaPrincipal(QMainWindow):
         self.ir("preparar_test")
 
     def empezar_test_libre(self, elegidos: list[tuple[str, str]]) -> None:
-        """Pide las preguntas sobre los apuntes elegidos y abre el test."""
+        """Pide las preguntas SOLO sobre los apuntes elegidos (uno por tema) y abre el test."""
+        if not elegidos:  # la pantalla ya lo impide: sin temas no hay test
+            return
         self.test_libre = True
         asignatura = self.asignatura
         temas = [nombre_tema(n) for n, _ in elegidos]
-        texto = f"Asignatura: {asignatura}\n"
-        if temas:
-            texto += f"Temas: {', '.join(temas)}\n\n" + para_test(unir("", elegidos), asignatura, " ".join(temas))
-        else:
-            texto += "\nNo hay apuntes: pregunta por los conceptos básicos de esta asignatura."
+        # Cada tema elegido se reparte el espacio, para que haya preguntas de todos.
+        maximo = max(1500, MAX_TEST // len(elegidos))
+        partes = [f"### Tema: {tema}\n{seleccionar(contenido, f'{tema} {asignatura}', maximo)}"
+                  for tema, (_, contenido) in zip(temas, elegidos)]
+        texto = (f"Asignatura: {asignatura}. Temas del test: {', '.join(temas)}. Reparte las "
+                 "preguntas entre estos temas y pregunta solo por lo que está en estos apuntes.\n\n"
+                 + "\n\n".join(partes))
         self._preguntas["libre"] = ("cargando", None)
         self._lanzar(lambda: generar_preguntas(texto, consultar_groq), "libre",
                      self._preguntas_listas, self._preguntas_fallo)

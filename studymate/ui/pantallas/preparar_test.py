@@ -30,8 +30,8 @@ class PantallaPrepararTest(Pagina):
         self.selector = SelectorApuntes()
         self.error = etiqueta("", "error")
         caja = tarjeta(etiqueta("¿Sobre qué quieres el test?", None), self.selector,
-                       etiqueta("Si la asignatura no tiene apuntes, las preguntas serán sobre "
-                                "sus conceptos básicos.", "nota"),
+                       etiqueta("Cada apunte marcado es un tema: las preguntas serán solo sobre "
+                                "los temas que marques.", "nota"),
                        self.error, espacio=12, margen=24)
         contenido = QWidget()
         capa_contenido = QVBoxLayout(contenido)
@@ -65,7 +65,9 @@ class PantallaPrepararTest(Pagina):
 
     def _empezar(self) -> None:
         elegidos = self.selector.elegidos()
-        if self.selector.hay_apuntes() and not elegidos:
-            self.error.setText("Marca al menos unos apuntes para el test.")
+        if not elegidos:
+            self.error.setText("No hay ningún tema seleccionado para hacer el test. "
+                               + ("Marca al menos uno." if self.selector.hay_apuntes()
+                                  else "Sube primero los apuntes del tema."))
             return
         self.ventana.empezar_test_libre(elegidos)

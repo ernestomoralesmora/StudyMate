@@ -80,11 +80,13 @@ class PantallaTest(Pagina):
             self.preguntas = datos
             self._mostrar_pregunta()
         elif estado == "error":
-            self._mensaje("No se ha podido preparar el test",
-                          f"{datos}\n\nPuedes continuar sin test.", "triste")
+            salir = "Sal del test y vuelve a intentarlo." if self.ventana.test_libre else \
+                "Pulsa «Saltar el test» para seguir con la sesión."
+            self._mensaje("No se ha podido preparar el test", f"{datos}\n\n{salir}", "triste")
         else:
+            sobre = "los temas que has marcado" if self.ventana.test_libre else "este bloque"
             self._mensaje("Preparando las preguntas…",
-                          "El asistente está escribiendo 10 preguntas sobre este bloque.", "pregunta")
+                          f"El asistente está escribiendo 10 preguntas sobre {sobre}.", "pregunta")
 
     def _mensaje(self, titulo: str, texto: str, cara: str) -> None:
         self.companero.set_expresion(cara)
@@ -93,8 +95,9 @@ class PantallaTest(Pagina):
         self.explicacion.setText(texto)
         for b in self.opciones:
             b.hide()
-        self.siguiente.setText("Continuar sin test")
-        self.siguiente.setEnabled(True)
+        # Mientras se preparan (o si fallan), solo se puede salir o saltar el test.
+        self.siguiente.hide()
+        self.siguiente.setEnabled(False)
         self.terminado = True
 
     # --- Preguntas -------------------------------------------------------------------
@@ -111,6 +114,7 @@ class PantallaTest(Pagina):
             b.show()
         self.explicacion.setText("")
         self.siguiente.setText("Siguiente  (Enter)")
+        self.siguiente.show()
         self.siguiente.setEnabled(False)
         self.respondida = False
         self.terminado = False
