@@ -1,22 +1,39 @@
-"""Entrar o crear una cuenta (usuario y contraseña, todo en local)."""
+"""Entrar o crear una cuenta (usuario y contraseña, todo en local).
+
+Todo va centrado: el compañero (logo) arriba, el nombre y la frase, y debajo una
+tarjeta con dos pestañas («Entrar» y «Crear cuenta»). Va dentro de un área con
+desplazamiento para que, en ventanas bajas, los campos no se aplasten.
+"""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLineEdit, QPushButton, QScrollArea,
+                               QVBoxLayout, QWidget)
 
 from studymate import usuarios as us
 
 from ..comun import Pagina, boton, etiqueta, tarjeta
 from ..companero import Companero
 
+ANCHO = 460      # ancho de la columna central
+ALTO_CAMPO = 46  # alto fijo de cada campo: así nunca se cortan las letras
+
+
+def _entrada(marcador: str = "", contrasena: bool = False) -> QLineEdit:
+    campo = QLineEdit()
+    campo.setPlaceholderText(marcador)
+    campo.setFixedHeight(ALTO_CAMPO)
+    if contrasena:
+        campo.setEchoMode(QLineEdit.Password)
+    return campo
+
 
 def _campo(texto: str, campo: QLineEdit, ayuda: str | None = None) -> QWidget:
     caja = QWidget()
     capa = QVBoxLayout(caja)
     capa.setContentsMargins(0, 0, 0, 0)
-    capa.setSpacing(4)
-    titulo = etiqueta(texto)
-    titulo.setStyleSheet("font-weight: 600;")
-    titulo.setBuddy(campo)
+    capa.setSpacing(6)
+    titulo = etiqueta(texto, "etiqueta_campo")
+    titulo.setBuddy(campo)  # lectores de pantalla: el rótulo nombra el campo
     capa.addWidget(titulo)
     capa.addWidget(campo)
     if ayuda:
@@ -24,73 +41,132 @@ def _campo(texto: str, campo: QLineEdit, ayuda: str | None = None) -> QWidget:
     return caja
 
 
-def _contrasena() -> QLineEdit:
-    c = QLineEdit()
-    c.setEchoMode(QLineEdit.Password)
-    return c
+def _formulario(*hijos) -> QWidget:
+    caja = QWidget()
+    capa = QVBoxLayout(caja)
+    capa.setContentsMargins(0, 0, 0, 0)
+    capa.setSpacing(16)
+    for h in hijos:
+        if isinstance(h, QWidget):
+            capa.addWidget(h)
+        else:
+            capa.addLayout(h)
+    return caja
 
 
 class PantallaAcceso(Pagina):
     def __init__(self, ventana):
         super().__init__(ventana)
-        # Entrar
-        self.usuario = QLineEdit()
-        self.contrasena = _contrasena()
+        # --- Pestañas «Entrar» / «Crear cuenta» -------------------------------------------
+        self.pestana_entrar = QPushButton("Entrar")
+        self.pestana_crear = QPushButton("Crear cuenta")
+        pestanas = QFrame()
+        pestanas.setObjectName("pestanas")
+        capa_pestanas = QHBoxLayout(pestanas)
+        capa_pestanas.setContentsMargins(4, 4, 4, 4)
+        capa_pestanas.setSpacing(4)
+        grupo = QButtonGroup(self)
+        for i, p in enumerate((self.pestana_entrar, self.pestana_crear)):
+            p.setObjectName("pestana")
+            p.setCheckable(True)
+            p.setCursor(Qt.PointingHandCursor)
+            p.clicked.connect(lambda _=False, i=i: self._modo(i))
+            grupo.addButton(p)
+            capa_pestanas.addWidget(p, 1)
+
+        # --- Entrar ----------------------------------------------------------------------
+        self.usuario = _entrada("Tu usuario")
+        self.contrasena = _entrada("Tu contraseña", contrasena=True)
+        self.usuario.returnPressed.connect(self.contrasena.setFocus)
         self.contrasena.returnPressed.connect(self._entrar)
         self.error_entrar = etiqueta("", "error")
-        entrar = tarjeta(
-            etiqueta("Entrar", "cifra"),
+        self.error_entrar.hide()
+        self.form_entrar = _formulario(
             _campo("Usuario", self.usuario),
             _campo("Contraseña", self.contrasena),
             self.error_entrar,
             boton("Entrar", "primario", self._entrar),
-            boton("Soy nuevo: crear una cuenta", None, lambda: self._modo(1)),
-            espacio=12, margen=28,
         )
-        # Crear cuenta
-        self.nombre = QLineEdit()
-        self.nuevo_usuario = QLineEdit()
-        self.curso = QLineEdit()
-        self.curso.setPlaceholderText("Opcional, por ejemplo 2º de Ingeniería Informática")
-        self.nueva = _contrasena()
-        self.repetir = _contrasena()
+
+        # --- Crear cuenta ------------------------------------------------------------------
+        self.nombre = _entrada("Por ejemplo, Pablo")
+        self.nuevo_usuario = _entrada("Por ejemplo, pablo")
+        self.curso = _entrada("Por ejemplo, 2º de Ingeniería Informática")
+        self.nueva = _entrada("Contraseña", contrasena=True)
+        self.repetir = _entrada("Otra vez", contrasena=True)
+        siguiente = [self.nombre, self.nuevo_usuario, self.curso, self.nueva, self.repetir]
+        for actual, proximo in zip(siguiente, siguiente[1:]):
+            actual.returnPressed.connect(proximo.setFocus)
         self.repetir.returnPressed.connect(self._registrar)
         self.error_registro = etiqueta("", "error")
-        registro = tarjeta(
-            etiqueta("Crear una cuenta", "cifra"),
+        self.error_registro.hide()
+        contrasenas = QHBoxLayout()
+        contrasenas.setSpacing(12)
+        contrasenas.addWidget(_campo("Contraseña", self.nueva), 1)
+        contrasenas.addWidget(_campo("Repítela", self.repetir), 1)
+        self.form_crear = _formulario(
             _campo("¿Cómo te llamas?", self.nombre),
             _campo("Usuario", self.nuevo_usuario, "Para entrar: letras sin tilde y números, sin espacios."),
-            _campo("Curso", self.curso),
-            _campo("Contraseña", self.nueva, f"Al menos {us.MIN_CONTRASENA} caracteres."),
-            _campo("Repite la contraseña", self.repetir),
+            _campo("Curso (opcional)", self.curso),
+            contrasenas,
+            etiqueta(f"La contraseña, de al menos {us.MIN_CONTRASENA} caracteres.", "nota"),
             self.error_registro,
             boton("Crear mi cuenta", "primario", self._registrar),
-            boton("Ya tengo cuenta: entrar", None, lambda: self._modo(0)),
-            espacio=12, margen=28,
         )
-        self.modos = QStackedWidget()
-        self.modos.addWidget(entrar)
-        self.modos.addWidget(registro)
-        self.modos.setFixedWidth(440)
 
-        companero = Companero("feliz", lado_minimo=120)
-        companero.setFixedSize(120, 120)
-        presentacion = QVBoxLayout()
-        presentacion.addStretch()
-        presentacion.addWidget(companero)
-        presentacion.addWidget(etiqueta("StudyMate", "titulo"))
-        presentacion.addWidget(etiqueta(
-            "Tu compañero de estudio. Cuenta el tiempo que estudias de verdad y lo convierte "
-            "en tu propio zoo: un animal por asignatura que crece con tus sesiones.", "subtitulo"))
-        presentacion.addWidget(etiqueta(
-            "Todo se guarda en este ordenador. La contraseña no se guarda tal cual, solo su huella.", "nota"))
-        presentacion.addStretch()
+        caja = tarjeta(pestanas, self.form_entrar, self.form_crear, espacio=22, margen=28)
+        caja.setObjectName("tarjeta_acceso")
 
-        cuerpo = QHBoxLayout(self)
-        cuerpo.setContentsMargins(60, 40, 60, 40)
-        cuerpo.setSpacing(48)
-        cuerpo.addLayout(presentacion, 1)
-        cuerpo.addWidget(self.modos, 0, Qt.AlignVCenter)
+        # --- Cabecera: logo, nombre y frase -------------------------------------------------
+        companero = Companero("feliz", lado_minimo=104)
+        companero.setFixedSize(104, 104)
+        nombre_app = etiqueta("StudyMate", "marca")
+        nombre_app.setAlignment(Qt.AlignCenter)
+        frase = etiqueta("Tu compañero de estudio. Cuenta el tiempo que estudias de verdad y lo "
+                         "convierte en tu propio zoo: un animal por asignatura que crece con tus "
+                         "sesiones.", "subtitulo")
+        frase.setAlignment(Qt.AlignCenter)
+        privacidad = etiqueta("Todo se guarda en este ordenador. La contraseña no se guarda tal cual, "
+                              "solo su huella.", "nota")
+        privacidad.setAlignment(Qt.AlignCenter)
+
+        columna = QWidget()
+        columna.setFixedWidth(ANCHO)
+        capa_columna = QVBoxLayout(columna)
+        capa_columna.setContentsMargins(0, 0, 0, 0)
+        capa_columna.setSpacing(0)
+        capa_columna.addWidget(companero, 0, Qt.AlignHCenter)
+        capa_columna.addSpacing(14)
+        capa_columna.addWidget(nombre_app)
+        capa_columna.addSpacing(8)
+        capa_columna.addWidget(frase)
+        capa_columna.addSpacing(28)
+        capa_columna.addWidget(caja)
+        capa_columna.addSpacing(18)
+        capa_columna.addWidget(privacidad)
+
+        # Centrado en horizontal y en vertical; si no cabe, se desplaza.
+        contenido = QWidget()
+        contenido.setObjectName("contenido_acceso")
+        contenido.setAttribute(Qt.WA_StyledBackground, True)
+        capa_contenido = QVBoxLayout(contenido)
+        capa_contenido.setContentsMargins(24, 32, 24, 32)
+        capa_contenido.addStretch()
+        fila = QHBoxLayout()
+        fila.addStretch()
+        fila.addWidget(columna)
+        fila.addStretch()
+        capa_contenido.addLayout(fila)
+        capa_contenido.addStretch()
+        desplazable = QScrollArea()
+        desplazable.setObjectName("fondo_acceso")
+        desplazable.setWidgetResizable(True)
+        desplazable.setFrameShape(QFrame.NoFrame)
+        desplazable.setWidget(contenido)
+
+        capa = QVBoxLayout(self)
+        capa.setContentsMargins(0, 0, 0, 0)
+        capa.addWidget(desplazable)
 
     def al_mostrar(self) -> None:
         self._modo(0 if us.cargar_usuarios() else 1)
@@ -98,17 +174,26 @@ class PantallaAcceso(Pagina):
             campo.clear()
 
     def _modo(self, indice: int) -> None:
-        self.modos.setCurrentIndex(indice)
-        self.error_entrar.setText("")
-        self.error_registro.setText("")
+        self.pestana_entrar.setChecked(indice == 0)
+        self.pestana_crear.setChecked(indice == 1)
+        self.form_entrar.setVisible(indice == 0)
+        self.form_crear.setVisible(indice == 1)
+        self._error(self.error_entrar, "")
+        self._error(self.error_registro, "")
         (self.usuario if indice == 0 else self.nombre).setFocus()
+
+    @staticmethod
+    def _error(etiqueta_error, texto: str) -> None:
+        etiqueta_error.setText(texto)
+        etiqueta_error.setVisible(bool(texto))
 
     def _entrar(self) -> None:
         try:
             usuario = us.iniciar_sesion(self.usuario.text(), self.contrasena.text())
         except us.ErrorUsuario as error:
-            self.error_entrar.setText(str(error))
+            self._error(self.error_entrar, str(error))
             self.contrasena.clear()
+            self.contrasena.setFocus()
             return
         self.ventana.sesion_iniciada(usuario)
 
@@ -117,6 +202,6 @@ class PantallaAcceso(Pagina):
             usuario = us.registrar(self.nuevo_usuario.text(), self.nombre.text(), self.nueva.text(),
                                    self.repetir.text(), self.curso.text())
         except us.ErrorUsuario as error:
-            self.error_registro.setText(str(error))
+            self._error(self.error_registro, str(error))
             return
         self.ventana.sesion_iniciada(usuario)

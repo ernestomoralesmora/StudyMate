@@ -45,6 +45,17 @@ QLabel#nota {{ color: {TEXTO_2}; font-size: 13px; }}
 QLabel#error {{ color: {AUSENTE}; }}
 QLabel#aviso {{ background: #2A2410; border: 1px solid {DUDOSO}; border-radius: 10px;
                padding: 10px 12px; color: #FFE3A3; }}
+QWidget#contenido_acceso {{ background: qradialgradient(cx: 0.5, cy: 0.32, radius: 0.75, fx: 0.5, fy: 0.32,
+    stop: 0 #0E2A1D, stop: 1 {FONDO}); }}
+QScrollArea#fondo_acceso {{ background: {FONDO}; border: 0; }}
+QLabel#marca {{ font-size: 38px; font-weight: 800; letter-spacing: 0.5px; }}
+QLabel#etiqueta_campo {{ font-weight: 600; font-size: 14px; }}
+QFrame#tarjeta_acceso {{ background: {SUPERFICIE}; border: 1px solid #275A41; border-radius: 22px; }}
+QFrame#pestanas {{ background: {FONDO}; border: 1px solid {BORDE}; border-radius: 14px; }}
+QPushButton#pestana {{ background: transparent; border: 0; border-radius: 10px; min-height: 40px;
+    color: {TEXTO_2}; }}
+QPushButton#pestana:hover {{ color: {TEXTO}; }}
+QPushButton#pestana:checked {{ background: {SUPERFICIE_2}; color: {ACENTO}; border: 1px solid {BORDE}; }}
 QFrame#tarjeta {{ background: {SUPERFICIE}; border: 1px solid {BORDE}; border-radius: 16px; }}
 QFrame#banner {{ background: #2A2410; border: 2px solid {DUDOSO}; border-radius: 16px; }}
 QPushButton {{ min-height: 44px; border-radius: 12px; padding: 0 18px; font-weight: 600;
