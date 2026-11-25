@@ -121,9 +121,9 @@ def apagar(figuras: list[dict], cuanto: float) -> list[dict]:
 
 def construir_recinto(recinto: Recinto, t: float = 0.0) -> list[dict]:
     animal = recinto.animal
-    # Con 70 o más de salud, colores plenos; por debajo se van apagando (un recinto
-    # nuevo, con 50, se ve con color, no seco).
-    k = max(0.0, min(1.0, recinto.salud / 70))
+    # Con 60 % o más, colores plenos; por debajo se van apagando un poco (un recinto
+    # nuevo, con 1 animal y 10 %, se ve con color, no seco). Vacío (0 %), casi gris.
+    k = max(0.0, min(1.0, 0.45 + recinto.salud / 110))
     figs: list[dict] = [{"tipo": "degradado", "x": 0, "y": 0, "w": ANCHO, "h": ALTO,
                          "arriba": _mezcla(SECO[0], animal.cielo[0], k),
                          "abajo": _mezcla(SECO[1], animal.cielo[1], k)}]
@@ -131,7 +131,7 @@ def construir_recinto(recinto: Recinto, t: float = 0.0) -> list[dict]:
     # Decoración según el recinto.
     especie = recinto.especie
     if especie == "pez":
-        if recinto.salud >= 45:
+        if recinto.animales:
             for i, (bx, r) in enumerate([(70, 5), (78, 3), (400, 4.5), (408, 3)]):
                 fase = ((t + i * 0.9) % 5) / 5
                 figs.append({"tipo": "circulo_borde", "cx": bx + 3 * math.sin(t * 2 + i), "cy": 230 - fase * 200,
@@ -160,11 +160,10 @@ def construir_recinto(recinto: Recinto, t: float = 0.0) -> list[dict]:
     figs.append(_p([(0, ALTO - 30)] + [(x, ALTO - 30 + 6 * math.sin(x / 60)) for x in range(0, ANCHO + 1, 40)]
                    + [(ANCHO, ALTO), (0, ALTO)], suelo))
 
-    # Animales: hasta 9, en dos filas; los que nadan, a media altura.
-    apagado = max(0.0, (50 - recinto.salud) / 60)
+    # Animales: hasta 10, en dos filas de 5; los que nadan, a media altura.
     for i in range(recinto.animales):
         col, fila = i % 5, i // 5
-        x = 52 + col * 92 + (fila % 2) * 46
+        x = 60 + col * 90 + fila * 30  # la 2.ª fila, algo desplazada (sin salirse)
         if animal.nada:
             fase = 2 * math.pi * t / (6 + i % 3) + i
             x += 18 * math.sin(fase)
@@ -173,9 +172,9 @@ def construir_recinto(recinto: Recinto, t: float = 0.0) -> list[dict]:
         else:
             y = ALTO - 60 - fila * 70 - 3 * abs(math.sin(t * 2.2 + i))
             espejo = i % 2 == 1
-        figs += apagar(colocar(dibujo_animal(especie), x, y, 1.7 - 0.25 * fila, espejo), apagado)
+        figs += colocar(dibujo_animal(especie), x, y, 1.7 - 0.25 * fila, espejo)
 
-    if recinto.salud < 45:  # velo gris cuando está mal
+    if recinto.animales == 0:  # velo gris cuando se ha quedado vacío
         figs.append({"tipo": "rect", "x": 0, "y": 0, "w": ANCHO, "h": ALTO, "relleno": "#2A2A22",
-                     "alfa": (45 - recinto.salud) / 90})
+                     "alfa": 0.35})
     return figs

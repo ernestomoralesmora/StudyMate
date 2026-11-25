@@ -66,6 +66,7 @@ class VentanaPrincipal(QMainWindow):
         self.asignatura = ""          # asignatura de la sesión (la del animal elegido)
         self.perfil: PerfilSesion | None = None
         self.test_libre = False       # True: test directo, sin sesión de estudio
+        self.cambios_tests: list[str] = []  # lo que han cambiado en el zoo los tests de la sesión
         self.apuntes = ""
         self.plan: Plan | None = None
         self.motor: MotorDeteccion | None = None
@@ -192,6 +193,7 @@ class VentanaPrincipal(QMainWindow):
         self.motor.start()
         self.controlador = None
         self._preguntas = {}
+        self.cambios_tests = []
         self.reloj.start()
         self.ir("preparacion")
 
@@ -244,8 +246,17 @@ class VentanaPrincipal(QMainWindow):
         else:
             self._terminar()
 
+    def aplicar_test(self, aciertos: int, total: int) -> list[str]:
+        """Cada test (de un bloque o directo) cambia el recinto según la nota."""
+        zoo = z.cargar(self.carpeta)
+        cambios = z.aplicar_test(zoo, self.asignatura, aciertos, total)
+        z.guardar(zoo, self.carpeta)
+        if not self.test_libre:
+            self.cambios_tests += cambios
+        return cambios
+
     def test_terminado(self, aciertos: int, total: int) -> None:
-        if self.test_libre:  # el test directo no es una sesión: no cambia el zoo
+        if self.test_libre:  # el test directo no es una sesión (el zoo ya cambió con la nota)
             self.test_libre = False
             self._preguntas.pop("libre", None)
             self.ir("inicio")
@@ -272,6 +283,9 @@ class VentanaPrincipal(QMainWindow):
         asignatura = self.perfil.asignatura
         zoo = z.cargar(self.carpeta)
         cambios = z.aplicar_sesion(zoo, asignatura, resultado, minutos=resumen.estudiado_s / 60)
+        # Los animales cambian con la nota de cada test (ya aplicada al acabar cada uno).
+        cambios += self.cambios_tests or [
+            f"Sin test, los animales no cambian. Con un {z.NOTA_BIEN} o más en un test llega otro."]
         z.guardar(zoo, self.carpeta)
         if resultado.cuenta:
             self.ultima_sesion = (asignatura, resultado)

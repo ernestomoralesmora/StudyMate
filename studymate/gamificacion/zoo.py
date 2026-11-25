@@ -1,15 +1,17 @@
 """El zoo: un recinto por asignatura (RF14, evolución de la pecera).
 
 Cada asignatura del curso tiene su recinto con un animal que elige el
-estudiante entre 10 (uno distinto por asignatura). Igual que la pecera, el
-zoo NO cambia mientras se estudia: al terminar una sesión se califica
-(pecera.calificar) y solo cambia el recinto de la asignatura estudiada:
+estudiante entre 10 (uno distinto por asignatura). El recinto cambia con la
+nota de cada TEST de esa asignatura (el del final de un bloque o el que se hace
+directamente desde el zoo), sobre 10:
 
-    muy buena -> +15 de salud y llega otro animal (cada 3, el recinto sube de nivel)
-    regular   -> igual
-    mala      -> -20 de salud y se va un animal
+    de 8 a 10 (bien)    -> llega otro animal: +10 % (cada 3, el recinto sube de nivel)
+    de 5 a 7  (normal)  -> se queda igual
+    menos de 5 (mal)    -> se va un animal: -10 %
 
-Cada recinto guarda sus sesiones, para ver el avance de cada asignatura.
+La salud es 10 % por animal: un recinto nuevo empieza con 1 animal (10 %) y
+llega al 100 % con 10. Las sesiones no cambian los animales: se guardan para
+ver el avance de cada asignatura.
 Python puro: la interfaz solo lo dibuja. Se guarda en data/zoo.json.
 """
 
@@ -18,15 +20,15 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from .pecera import CARPETA_DATOS, Calificacion, ResultadoCalificacion
-from .pecera import cargar as cargar_pecera
+from .pecera import CARPETA_DATOS, ResultadoCalificacion
 
 ARCHIVO = "zoo.json"
 MAX_RECINTOS = 10
-MAX_ANIMALES = 9
-SALUD_INICIAL = 50
-ANIMALES_INICIALES = 2   # cada recinto nuevo empieza con algunos animales
-CAMBIO_SALUD = {"muy_buena": 15, "regular": 0, "mala": -20}
+MAX_ANIMALES = 10
+SALUD_POR_ANIMAL = 10    # % de salud que vale cada animal (10 animales = 100 %)
+ANIMALES_INICIALES = 1   # cada recinto nuevo empieza con un animal (10 %)
+NOTA_BIEN = 8            # nota (sobre 10) desde la que llega otro animal
+NOTA_APROBADO = 5        # por debajo, se va un animal
 ANIMALES_POR_NIVEL = 3
 MAX_HISTORIAL = 100
 MAX_TEMAS = 40
@@ -65,10 +67,10 @@ class ErrorZoo(ValueError):
 class Recinto:
     asignatura: str
     especie: str
-    salud: int = SALUD_INICIAL
     animales: int = ANIMALES_INICIALES
-    racha_buenas: int = 0
+    racha_buenas: int = 0                               # tests seguidos con 8 o más
     sesiones: list[dict] = field(default_factory=list)  # {fecha, calificacion, puntuacion, minutos}
+    tests: list[dict] = field(default_factory=list)     # {fecha, aciertos, total, nota, resultado}
     temas: list[str] = field(default_factory=list)      # temas de la asignatura (los elige el estudiante)
     # Respuestas del último cuestionario de ESTA asignatura (para proponerlas la próxima vez).
     ultimo_cuestionario: dict = field(default_factory=dict)
@@ -76,6 +78,11 @@ class Recinto:
     @property
     def animal(self) -> Animal:
         return ANIMALES[self.especie]
+
+    @property
+    def salud(self) -> int:
+        """10 % por animal."""
+        return self.animales * SALUD_POR_ANIMAL
 
     @property
     def nivel(self) -> int:
@@ -109,7 +116,7 @@ class Recinto:
 
     def texto_racha(self) -> str:
         n = self.racha_buenas
-        return f"{n} sesiones muy buenas seguidas" if n != 1 else "1 sesión muy buena seguida"
+        return f"{n} tests seguidos con {NOTA_BIEN} o más" if n != 1 else f"1 test con {NOTA_BIEN} o más"
 
 
 NOMBRE_POR_DEFECTO = "Mi zoo"
@@ -184,37 +191,65 @@ class Zoo:
         return min(self.recintos, key=lambda r: r.salud) if self.recintos else None
 
 
+def nota_test(aciertos: int, total: int) -> float:
+    """Nota sobre 10 (con un decimal)."""
+    return round(10 * aciertos / total, 1) if total else 0.0
+
+
+def resultado_test(nota: float) -> str:
+    """«bien» (8-10), «normal» (5-7) o «mal» (suspenso)."""
+    return "bien" if nota >= NOTA_BIEN else "normal" if nota >= NOTA_APROBADO else "mal"
+
+
+def aplicar_test(zoo: Zoo, asignatura: str, aciertos: int, total: int,
+                 fecha: datetime | None = None) -> list[str]:
+    """Cambia el recinto de la asignatura según la nota de un test. Devuelve qué ha cambiado."""
+    r = zoo.recinto(asignatura)
+    if r is None:
+        return [f"{asignatura} no tiene recinto en el zoo: no cambia nada."]
+    if not total:
+        return ["Test sin responder: el zoo no cambia."]
+    nota = nota_test(aciertos, total)
+    res = resultado_test(nota)
+    animal = r.animal.nombre.lower()
+    texto_nota = f"{nota:g}".replace(".", ",")
+    cambios = []
+    if res == "bien":
+        r.racha_buenas += 1
+        if r.animales < MAX_ANIMALES:
+            r.animales += 1
+            subida = f" y el recinto sube al nivel {r.nivel}" if r.animales % ANIMALES_POR_NIVEL == 0 else ""
+            cambios.append(f"Un {texto_nota}: ¡ha llegado otro {animal}{subida}! "
+                           f"{r.asignatura} sube al {r.salud} %.")
+        else:
+            cambios.append(f"Un {texto_nota}: el recinto de {r.asignatura} ya está completo, al 100 %.")
+    elif res == "mal":
+        r.racha_buenas = 0
+        if r.animales:
+            r.animales -= 1
+            cambios.append(f"Un {texto_nota}: se ha ido un {animal}. {r.asignatura} baja al {r.salud} %.")
+        else:
+            cambios.append(f"Un {texto_nota}: el recinto de {r.asignatura} sigue vacío, al 0 %.")
+    else:
+        r.racha_buenas = 0
+        cambios.append(f"Un {texto_nota}: el recinto de {r.asignatura} se queda igual, al {r.salud} %. "
+                       f"Con un {NOTA_BIEN} o más llegaría otro {animal}.")
+    r.tests.append({"fecha": (fecha or datetime.now()).isoformat(timespec="minutes"),
+                    "aciertos": aciertos, "total": total, "nota": nota, "resultado": res})
+    r.tests = r.tests[-MAX_HISTORIAL:]
+    return cambios
+
+
 def aplicar_sesion(zoo: Zoo, asignatura: str, resultado: ResultadoCalificacion,
                    minutos: float = 0, fecha: datetime | None = None) -> list[str]:
-    """Cambia el recinto de la asignatura al terminar una sesión. Devuelve qué ha cambiado."""
+    """Guarda la sesión en el avance de la asignatura. Los animales solo cambian con los tests."""
     r = zoo.recinto(asignatura)
     if r is None:
         return [f"{asignatura} no tiene recinto en el zoo: no cambia nada."]
     if not resultado.cuenta:
         return resultado.motivos[:]
     cal = resultado.calificacion
-    animal = r.animal.nombre.lower()
-    r.salud = max(0, min(100, r.salud + CAMBIO_SALUD[cal.value]))
     cambios = []
-    if cal == Calificacion.MUY_BUENA:
-        r.racha_buenas += 1
-        if r.animales < MAX_ANIMALES:
-            r.animales += 1
-            if r.animales % ANIMALES_POR_NIVEL == 0:
-                cambios.append(f"¡Ha llegado otro {animal} y el recinto sube al nivel {r.nivel}!")
-            else:
-                cambios.append(f"Ha llegado otro {animal} al recinto de {r.asignatura}.")
-        else:
-            cambios.append(f"El recinto de {r.asignatura} está completo y en su mejor momento.")
-    elif cal == Calificacion.MALA:
-        r.racha_buenas = 0
-        if r.animales:
-            r.animales -= 1
-            cambios.append(f"Se ha ido un {animal} del recinto de {r.asignatura}.")
-        cambios.append("El recinto ha perdido color.")
-    else:
-        r.racha_buenas = 0
-        cambios.append(f"El recinto de {r.asignatura} se queda igual.")
     r.sesiones.append({
         "fecha": (fecha or datetime.now()).isoformat(timespec="minutes"),
         "calificacion": cal.value,
@@ -232,10 +267,11 @@ def mensaje(zoo: Zoo) -> str:
     peor = zoo.necesita_atencion()
     if peor.salud >= 80:
         return "Todo tu zoo está en plena forma. ¡Sigue así!"
-    if peor.salud >= 45:
-        return f"El zoo va bien. Una sesión muy buena de {peor.asignatura} lo pondría a tope."
-    return (f"El recinto de {peor.asignatura} lo está pasando mal: "
-            f"tus {peor.animal.plural} te esperan para una buena sesión.")
+    if peor.animales == 0:
+        return (f"El recinto de {peor.asignatura} se ha quedado vacío: saca un {NOTA_BIEN} o más "
+                f"en un test para que vuelva un {peor.animal.nombre.lower()}.")
+    return (f"Cada test con un {NOTA_BIEN} o más trae otro animal (+10 %). "
+            f"{peor.asignatura} es la que más lo necesita ({peor.salud} %).")
 
 
 # --- Guardar y cargar (data/zoo.json, no se sube al repositorio) --------------------------
@@ -245,24 +281,20 @@ def cargar(carpeta: Path = CARPETA_DATOS) -> Zoo:
         try:
             datos = json.loads(ruta.read_text(encoding="utf-8"))
             validos = Recinto.__dataclass_fields__
-            recintos = [Recinto(**{k: v for k, v in r.items() if k in validos})
-                        for r in datos.get("recintos", []) if r.get("especie") in ANIMALES]
-            for r in recintos:
-                # Recintos creados con la versión anterior y aún sin sesiones: se ponen
-                # como los nuevos (salud 50 y algunos animales de partida).
-                if not r.sesiones:
-                    if r.salud == 60:
-                        r.salud = SALUD_INICIAL
-                    r.animales = max(r.animales, ANIMALES_INICIALES)
+            brutos = [r for r in datos.get("recintos", []) if r.get("especie") in ANIMALES]
+            recintos = [Recinto(**{k: v for k, v in r.items() if k in validos}) for r in brutos]
+            for bruto, r in zip(brutos, recintos):
+                # Recintos de antes de que los animales dependieran de los tests: empiezan
+                # de cero con las reglas nuevas (1 animal, 10 %). Las sesiones se conservan.
+                if "tests" not in bruto:
+                    r.animales, r.racha_buenas = ANIMALES_INICIALES, 0
+                r.animales = max(0, min(MAX_ANIMALES, r.animales))
             return Zoo(recintos[:MAX_RECINTOS], datos.get("nombre") or NOMBRE_POR_DEFECTO)
         except (ValueError, TypeError, AttributeError):
             return Zoo()
     # Primera vez: si había pecera, pasa a ser el acuario de una asignatura "General".
     if (carpeta / "pecera.json").exists():
-        pecera = cargar_pecera(carpeta)
-        return Zoo([Recinto("General", "pez", salud=pecera.salud,
-                            animales=min(len(pecera.peces), MAX_ANIMALES),
-                            racha_buenas=pecera.racha_buenas)])
+        return Zoo([Recinto("General", "pez")])
     return Zoo()
 
 

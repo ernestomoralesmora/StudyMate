@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from studymate.sesion.controlador import que_repasar
 
+from studymate.gamificacion import zoo as z
 from ..comun import Pagina, boton, etiqueta, tarjeta
 from ..companero import Companero
 
@@ -150,9 +151,12 @@ class PantallaTest(Pagina):
         repasar = que_repasar(self.preguntas, self.respuestas)
         self.terminado = True
         self._aciertos, self._total = aciertos, total
-        self.companero.set_expresion("feliz" if aciertos >= total * 0.7 else "concentrado")
-        self.progreso.setText("")
-        self.enunciado.setText(f"Has acertado {aciertos} de {total}")
+        self.companero.set_expresion({"bien": "feliz", "normal": "concentrado", "mal": "triste"}[
+            z.resultado_test(z.nota_test(aciertos, total))])
+        nota = z.nota_test(aciertos, total)
+        cambios = self.ventana.aplicar_test(aciertos, total)
+        self.progreso.setText(" ".join(cambios))
+        self.enunciado.setText(f"Has acertado {aciertos} de {total} · un {f'{nota:g}'.replace('.', ',')}")
         for b in self.opciones:
             b.hide()
         if repasar:

@@ -50,7 +50,8 @@ Recorrido:
    test → descanso) → **resumen** (nota, autocrítica y su recinto) → vuelta al zoo.
 
 5. **Hacer un test** (botón de cada asignatura): se eligen sus apuntes y el asistente prepara
-   10 preguntas sobre ellos, sin sesión de estudio ni cámara (no cambia el zoo).
+   10 preguntas sobre ellos, sin sesión de estudio ni cámara. Su nota cambia el zoo
+   igual que la de cualquier test.
 
 Cada asignatura es independiente: sus temas, sus sesiones, su avance y sus animales solo
 cambian con sus propias sesiones. El **historial** se puede ver por asignatura.
@@ -269,16 +270,18 @@ tortuga, rana, búho y zorro), uno distinto por asignatura. Cada animal tiene su
 recinto de cada asignatura con su nivel, su salud y el **avance**: las últimas sesiones
 (color = nota, alto = minutos) y las horas totales.
 
-Como la pecera, el zoo **no cambia mientras se estudia**. En el cuestionario se elige la
-asignatura de la sesión y, al terminar, solo cambia su recinto:
+La **salud es 10 % por animal**: cada recinto empieza con **un animal (10 %)** y llega al
+100 % con 10. Los animales cambian con la **nota de cada test** de esa asignatura, tanto el
+del final de un bloque como el que se hace con «Hacer un test» (nota sobre 10):
 
-| Sesión | Cómo se decide | Qué pasa en el recinto |
-|---|---|---|
-| Muy buena | puntuación ≥ 80 | +15 de salud y llega otro animal; cada 3 animales, el recinto sube de nivel (máximo 9) |
-| Regular | entre 50 y 79 | se queda igual (y se corta la racha) |
-| Mala | < 50 | −20 de salud, se va un animal y el recinto pierde color |
+| Nota del test | Qué pasa en el recinto |
+|---|---|
+| De 8 a 10 (bien) | llega otro animal: +10 %; cada 3 animales, el recinto sube de nivel |
+| De 5 a 7 (normal) | se queda igual |
+| Menos de 5 (suspenso) | se va un animal: −10 % (con 0 %, el recinto se queda vacío y gris) |
 
-La puntuación parte del **porcentaje del tiempo previsto que se ha estudiado de verdad** y
+La nota y el cambio se ven al acabar el test. Las sesiones no cambian los animales, pero
+se califican y se guardan en el avance de cada asignatura. La puntuación de la sesión parte del **porcentaje del tiempo previsto que se ha estudiado de verdad** y
 resta 8 puntos por cada vez que se coge el móvil y 4 por cada ausencia. El test, si se hace,
 suma como mucho 5. Las sesiones de menos de 5 minutos no cuentan. Al acabar, el resumen
 muestra una **autocrítica** en primera persona: qué ha ido bien y qué mejorar.

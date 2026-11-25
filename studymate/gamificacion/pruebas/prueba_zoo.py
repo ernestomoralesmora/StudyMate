@@ -73,24 +73,38 @@ def main() -> None:
 
     print("\nCrecer y decrecer")
     r = zoo.recinto("matemáticas")
-    ok(r.salud == 50 and r.animales == 2 and r.nivel == 1, "un recinto nuevo empieza con 2 animales y 50 de salud")
-    cambios = z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=58)
-    ok(r.animales == 3 and r.salud == 65 and "nivel 2" in cambios[0], "muy buena: +1 animal y +15; con 3, nivel 2")
-    z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=55)
-    z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=55)
-    ok(r.animales == 5 and r.racha_buenas == 3, "racha de 3 muy buenas")
-    z.aplicar_sesion(zoo, "Matemáticas", regular, minutos=45)
-    ok(r.animales == 5 and r.racha_buenas == 0, "regular: igual, pero corta la racha")
+    ok(r.salud == 10 and r.animales == 1 and r.nivel == 1, "un recinto nuevo empieza con 1 animal y 10 %")
+    ok([z.resultado_test(n) for n in (10, 8, 7.9, 5, 4.9, 0)] == ["bien", "bien", "normal", "normal", "mal", "mal"],
+       "8-10 bien, 5-7 normal, menos de 5 mal")
+    cambios = z.aplicar_test(zoo, "Matemáticas", 8, 10)
+    ok(r.animales == 2 and r.salud == 20 and "un 8" in cambios[0].lower(), "un 8: llega otro animal y +10 %")
+    cambios = z.aplicar_test(zoo, "Matemáticas", 10, 10)
+    ok(r.animales == 3 and r.salud == 30 and "nivel 2" in cambios[0] and r.racha_buenas == 2,
+       "un 10: +10 %; con 3 animales, nivel 2")
+    z.aplicar_test(zoo, "Matemáticas", 6, 10)
+    ok(r.animales == 3 and r.racha_buenas == 0, "un 6: se queda igual y se corta la racha")
+    cambios = z.aplicar_test(zoo, "Matemáticas", 3, 10)
+    ok(r.animales == 2 and r.salud == 20 and "baja al 20 %" in cambios[0], "suspenso: se va un animal y −10 %")
+    ok(zoo.recinto("Diseño de Sistemas Interactivos").salud == 10, "solo cambia el recinto de esa asignatura")
+    for _ in range(4):
+        z.aplicar_test(zoo, "Matemáticas", 0, 10)
+    ok(r.animales == 0 and r.salud == 0, "como poco 0 animales (recinto vacío)")
+    ok(z.aplicar_test(zoo, "Matemáticas", 0, 0) == ["Test sin responder: el zoo no cambia."] and len(r.tests) == 8,
+       "un test saltado no cuenta; se guardan las notas")
+    for _ in range(14):
+        z.aplicar_test(zoo, "Matemáticas", 9, 10)
+    ok(r.animales == z.MAX_ANIMALES and r.salud == 100, f"como mucho {z.MAX_ANIMALES} animales (100 %)")
+    ok("no tiene recinto" in z.aplicar_test(zoo, "Química", 9, 10)[0], "asignatura sin recinto: no cambia nada")
+
+    print("\nLas sesiones se guardan, pero no cambian los animales")
+    antes = r.animales
+    z.aplicar_sesion(zoo, "Matemáticas", buena, minutos=58)
     z.aplicar_sesion(zoo, "Matemáticas", mala, minutos=25)
-    ok(r.animales == 4 and r.salud == 75, "mala: se va un animal y −20 de salud")
-    ok(zoo.recinto("Diseño de Sistemas Interactivos").animales == 2, "solo cambia el recinto de esa asignatura")
+    ok(r.animales == antes, "una sesión no cambia los animales")
     z.aplicar_sesion(zoo, "Matemáticas", corta, minutos=1)
-    ok(len(r.sesiones) == 5, "una sesión demasiado corta no cuenta")
-    ok(r.minutos == 238 and [s["calificacion"] for s in r.sesiones][-1] == "mala", "guarda el avance de cada sesión")
+    ok(len(r.sesiones) == 2, "una sesión demasiado corta no cuenta")
+    ok(r.minutos == 83 and r.sesiones[-1]["calificacion"] == "mala", "guarda el avance de cada sesión")
     ok("no tiene recinto" in z.aplicar_sesion(zoo, "Química", buena)[0], "asignatura sin recinto: no cambia nada")
-    for _ in range(12):
-        z.aplicar_sesion(zoo, "Matemáticas", buena)
-    ok(r.animales == z.MAX_ANIMALES and r.salud == 100, f"como mucho {z.MAX_ANIMALES} animales")
 
     print("\nGuardar, cargar y pasar desde la pecera")
     with tempfile.TemporaryDirectory() as tmp:
@@ -99,7 +113,7 @@ def main() -> None:
         (carpeta / z.ARCHIVO).write_text(json.dumps({"recintos": [
             {"asignatura": "Física", "especie": "buho", "salud": 60, "animales": 0}]}), encoding="utf-8")
         viejo = z.cargar(carpeta).recinto("Física")
-        ok(viejo.salud == 50 and viejo.animales == 2, "los recintos de antes sin sesiones se ponen como los nuevos")
+        ok(viejo.salud == 10 and viejo.animales == 1, "los recintos de antes empiezan con las reglas nuevas (1 animal)")
         (carpeta / z.ARCHIVO).unlink()
         pecera = pc.EstadoPecera.nueva()
         pecera.salud, pecera.racha_buenas = 85, 2
@@ -107,7 +121,7 @@ def main() -> None:
         pc.guardar(pecera, carpeta)
         migrado = z.cargar(carpeta)
         ok(migrado.recintos[0].asignatura == "General" and migrado.recintos[0].especie == "pez"
-           and migrado.recintos[0].animales == 5 and migrado.recintos[0].salud == 85,
+           and migrado.recintos[0].animales == 1,
            "la pecera que había pasa a ser el acuario de «General»")
         zoo.renombrar("  El zoo   de Lucía ")
         falla(lambda: zoo.renombrar(" "), "el zoo necesita nombre")
@@ -124,7 +138,7 @@ def main() -> None:
 
     print("\nDibujo de los 10 recintos")
     for i, especie in enumerate(z.ANIMALES):
-        recinto = z.Recinto(f"A{i}", especie, salud=[95, 60, 25][i % 3], animales=i % 10)
+        recinto = z.Recinto(f"A{i}", especie, animales=(i * 3) % 11)
         figuras = construir_recinto(recinto, t=1.0)
         assert len(figuras) > 3
         if args.svg:

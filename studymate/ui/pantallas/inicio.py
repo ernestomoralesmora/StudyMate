@@ -16,7 +16,7 @@ from ..zoo_widget import AnimalIcono, RecintoWidget
 
 
 def color_salud(salud: int) -> str:
-    return estilo.ACENTO if salud >= 50 else estilo.DUDOSO if salud >= 30 else estilo.MOVIL
+    return estilo.ACENTO if salud >= 50 else estilo.DUDOSO if salud > 0 else estilo.MOVIL
 
 
 def horas(minutos: float) -> str:
@@ -192,7 +192,7 @@ class PantallaInicio(Pagina):
         zoo = z.cargar(carpeta)
         self.titulo.setText(zoo.nombre)
         self.subtitulo.setText(f"Hola, {self.ventana.usuario.nombre.split()[0]}. Un animal por asignatura: "
-                               "cada uno crece con tus sesiones de esa asignatura.")
+                               "cada uno crece con las notas de tus tests (8 o más: llega otro animal).")
         self._pintar_recintos(zoo)
         self.mensaje.setText(z.mensaje(zoo))
         e = estadisticas(cargar_historial(carpeta))
@@ -202,7 +202,7 @@ class PantallaInicio(Pagina):
         self.cifras["total"].setText(horas(zoo.total_minutos))
         peor = zoo.necesita_atencion()
         self.companero.set_expresion("neutro" if peor is None else "feliz" if peor.salud >= 80
-                                     else "concentrado" if peor.salud >= 45 else "triste")
+                                     else "concentrado" if peor.salud > 0 else "triste")
 
         ultima = self.ventana.ultima_sesion
         self.ultima.setVisible(ultima is not None)
@@ -224,7 +224,7 @@ class PantallaInicio(Pagina):
             vacio = tarjeta(
                 etiqueta("Tu zoo está vacío", "cifra"),
                 etiqueta("Añade las asignaturas de este curso y elige un animal para cada una. "
-                         "Cada recinto crecerá con tus sesiones de esa asignatura."),
+                         "Cada recinto empieza con un animal (10 %) y crece con las notas de tus tests."),
                 boton("Añadir mi primera asignatura", "primario", self._anadir),
             )
             self.tarjetas = []
