@@ -40,6 +40,12 @@ def main() -> None:
     sin_test = pc.calificar(pc.ResumenSesion(3600, 2800))
     comprobar(0 < con_test.puntuacion - sin_test.puntuacion <= pc.BONUS_TEST_MAX, "el test suma, pero poco (es opcional)")
 
+    comprobar(buena.bien and not mala.bien, "autocrítica: la sesión buena tiene puntos fuertes")
+    comprobar(any("móvil" in x for x in mala.mejorar), "autocrítica: la mala señala el móvil como lo que mejorar")
+    texto = pc.mensaje(pc.EstadoPecera.nueva(), mala)
+    comprobar("Qué puedo mejorar" in texto and "Racha" in texto, "el mensaje incluye racha y autocrítica")
+    print("\n" + texto + "\n")
+
     print("\nCambios en la pecera")
     with tempfile.TemporaryDirectory() as tmp:
         carpeta = Path(tmp)
@@ -52,19 +58,18 @@ def main() -> None:
         comprobar(len(e.peces) == 4 and e.salud == pc.SALUD_INICIAL + 15, "sesión regular: todo igual")
         cambios = pc.aplicar_sesion(e, mala, hoy + timedelta(days=2))
         comprobar(len(e.peces) == 3 and e.muertos_recientes == 1, "sesión mala: un pez muere y queda flotando")
-        comprobar(e.racha_dias == 0, "una sesión mala corta la racha de días")
+        comprobar(e.racha_buenas == 0, "una sesión mala corta la racha")
         pc.aplicar_sesion(e, buena, hoy + timedelta(days=3))
         comprobar(e.muertos_recientes == 0, "la siguiente sesión muy buena limpia la pecera")
         antes = e.salud
-        pc.aplicar_sesion(e, regular, hoy + timedelta(days=7))
-        comprobar(e.salud == antes - 10, "tras 4 días sin estudiar el agua se ensucia un poco (−10)")
-        antes = e.salud
-        pc.aplicar_sesion(e, regular, hoy + timedelta(days=20))
-        comprobar(e.salud == max(0, antes - pc.SUCIEDAD_MAXIMA), "tras casi dos semanas, como mucho −30")
+        pc.aplicar_sesion(e, regular, hoy + timedelta(days=30))
+        comprobar(e.salud == antes, "pasar días sin estudiar no cambia nada (la racha es por sesiones)")
+        pc.aplicar_sesion(e, regular, hoy + timedelta(days=31))
         for i in range(3):
             pc.aplicar_sesion(e, buena, hoy + timedelta(days=21 + i))
         comprobar(any(p.especie == pc.ESPECIE_RARA[0] for p in e.peces), "tres muy buenas seguidas traen un pez dorado")
-        comprobar(e.racha_dias == 4, "racha de 4 días seguidos (una sesión regular también mantiene la racha)")
+        comprobar(e.racha_buenas == 3, "racha de 3 sesiones muy buenas seguidas")
+        comprobar("Pez dorado conseguido" in pc.texto_racha(e), "el mensaje cuenta la racha por sesiones")
         for i in range(20):
             pc.aplicar_sesion(e, buena, hoy + timedelta(days=30 + i))
         comprobar(len(e.peces) == pc.MAX_PECES and e.salud == 100, f"como máximo {pc.MAX_PECES} peces y 100 de salud")
