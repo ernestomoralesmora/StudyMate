@@ -54,9 +54,9 @@ ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son norm
 | 13 | En DUDOSO, pulsar **S** (sin destaparte) | Pasa a **ESTUDIANDO** al momento, suma el pendiente y no vuelve a preguntar | | |
 | 14 | En DUDOSO, pulsar **N** | Pasa a **AUSENTE** al momento; al destaparte, vuelve a ESTUDIANDO | | |
 | 14b | Justo después, taparte otra vez 20 s | **No** pregunta (pausa de 10 min) y no cambia de estado | | |
-| 16 | Con `--movil-a-la-vista`, dejar el móvil en la mesa a la izquierda; a los 4 s se abre una ventana: marcarlo con el ratón y pulsar Enter | "Movil: en su sitio" con un recuadro verde y "parecido" alrededor de 0,7 | | |
+| 16 | Con `--movil-a-la-vista`: en la preparación, dejar el móvil en la mesa a la izquierda, arrastrar un recuadro sobre él y pulsar Enter | Borde azul "PREPARACION" con cuenta atrás; al marcar, recuadro verde "en su sitio"; con Enter empieza la sesión (sin Enter, a los 30 s) | | |
 | 17 | Con el móvil en su sitio, coger el típex o un boli | Sigue **ESTUDIANDO** | | |
-| 18 | Coger el móvil y usarlo | Recuadro naranja; **USANDO_MOVIL** o, si no se ve en la mano, a los ~4 s "Has cogido el movil?" | | |
+| 18 | Coger el móvil y usarlo | Recuadro naranja; **USANDO_MOVIL** o, si no se ve en la mano, a los ~4 s suena un aviso y "Has cogido el movil?" | | |
 | 19 | Dejarlo otra vez en su sitio | "en su sitio" y a los ~1,5 s **ESTUDIANDO** | | |
 | 15 | Pulsar **Q** | Se cierra y la consola muestra el tiempo total | | |
 

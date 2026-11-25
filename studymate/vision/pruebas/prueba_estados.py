@@ -192,6 +192,20 @@ def prueba_movil_aparcado():
     print("OK  móvil aparcado (localizar, vigilar, preguntar)")
 
 
+def prueba_preparacion():
+    from ..preparacion import Preparacion
+
+    p = Preparacion(inicio=100.0, duracion_s=30)
+    assert p.restante(110) == 20 and not p.debe_empezar(110)
+    assert not p.marcar_movil(50, 50, 55, 52), "un clic sin arrastrar no marca nada"
+    assert p.marcar_movil(120, 300, 40, 380) and p.movil_marcado == (40, 300, 120, 380)
+    assert "Enter" in p.mensaje(110, True)
+    assert p.debe_empezar(130.1), "a los 30 s empieza sola"
+    p.empezar()
+    assert not p.debe_empezar(140), "y solo una vez"
+    print("OK  preparación (30 s, marcar el móvil, empezar antes)")
+
+
 def prueba_modos_clip():
     """Las tres variantes con un boli que pasa las reglas pero CLIP rechaza, y al revés."""
     cara, mano = (100, 100, 200, 200), (300, 300, 380, 380)
@@ -310,6 +324,7 @@ if __name__ == "__main__":
     prueba_clasificacion()
     prueba_modos_clip()
     prueba_movil_aparcado()
+    prueba_preparacion()
     prueba_margen()
     prueba_temporizador()
     prueba_preguntas()

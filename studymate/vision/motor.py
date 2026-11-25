@@ -27,6 +27,7 @@ class Instantanea:
     esperando_confirmacion: bool
     fps: float
     sitio_movil: SitioMovil = SitioMovil.SIN_USAR
+    en_sesion: bool = True  # False durante la preparación (el tiempo no cuenta)
 
 
 class MotorDeteccion(threading.Thread):
@@ -51,6 +52,9 @@ class MotorDeteccion(threading.Thread):
         self._parar = threading.Event()
         self._listo = threading.Event()
         self._ultima: Instantanea | None = None
+        # Hasta que se llama a empezar_sesion() solo se mira (preparación):
+        # ni la máquina de estados ni el temporizador avanzan.
+        self.en_sesion = False
 
     def run(self) -> None:
         try:
@@ -80,13 +84,14 @@ class MotorDeteccion(threading.Thread):
             candidato = clasificar(obs, self.clases_permitidas)
 
             with self._cerrojo:
-                fuera = obs.sitio_movil == SitioMovil.FUERA
-                self.maquina.actualizar(
-                    candidato, ahora,
-                    margen_dudoso_s=config.MARGEN_MOVIL_FUERA_S if fuera else None,
-                    insistir=fuera,
-                )
-                self.temporizador.actualizar(self.maquina.estado, ahora)
+                if self.en_sesion:
+                    fuera = obs.sitio_movil == SitioMovil.FUERA
+                    self.maquina.actualizar(
+                        candidato, ahora,
+                        margen_dudoso_s=config.MARGEN_MOVIL_FUERA_S if fuera else None,
+                        insistir=fuera,
+                    )
+                    self.temporizador.actualizar(self.maquina.estado, ahora)
                 dt = ahora - anterior
                 anterior = ahora
                 if dt > 0:  # media móvil para que el número no baile
@@ -101,6 +106,7 @@ class MotorDeteccion(threading.Thread):
                     esperando_confirmacion=self.temporizador.esperando_confirmacion,
                     fps=fps,
                     sitio_movil=obs.sitio_movil,
+                    en_sesion=self.en_sesion,
                 )
             self._listo.set()
 
@@ -135,6 +141,20 @@ class MotorDeteccion(threading.Thread):
                 Estado.ESTUDIANDO if estaba_estudiando else Estado.AUSENTE,
                 time.monotonic(),
             )
+
+    def marcar_movil(self, frame_bgr, recuadro) -> None:
+        """El estudiante ha marcado con el ratón dónde está el móvil."""
+        import cv2
+        if self.vigilante is not None:
+            self.vigilante.marcar_a_mano(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB), recuadro)
+
+    def empezar_sesion(self) -> None:
+        """Acaba la preparación: desde aquí cuentan el estado y el tiempo."""
+        with self._cerrojo:
+            v = self.vigilante
+            if v is not None and v.estado == SitioMovil.BUSCANDO:
+                v.estado = SitioMovil.NO_ENCONTRADO  # no lo marcó: solo se vigila la mano
+            self.en_sesion = True
 
     @property
     def vigilante(self):

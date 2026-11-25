@@ -4,12 +4,14 @@ Uso (desde la raíz del repositorio):
     python -m studymate.vision.pruebas.prueba_camara [--camara N] [--permitir-movil] [--modelo M]
                                                      [--movil-a-la-vista]
 
-Con --movil-a-la-vista, al empezar deja el móvil en la mesa donde la cámara lo vea
-(por ejemplo, a la izquierda): se abre una ventana para marcarlo con el ratón y
-pulsar Enter. Ese queda como su sitio y se vigila. M lo vuelve a marcar.
+Antes de empezar hay 30 s de preparación (el tiempo no cuenta). Con
+--movil-a-la-vista, deja el móvil en la mesa donde la cámara lo vea y arrastra
+con el ratón un recuadro sobre él. Enter empieza la sesión antes; si no, empieza
+sola a los 30 s. Si el móvil desaparece de su sitio, suena un aviso y pregunta.
 
 Teclas:  Q / Esc = salir   S = sí estaba estudiando   N = no estaba estudiando
-         Con --movil-a-la-vista:  M = marcar el móvil a mano   B = buscarlo otra vez
+         Enter / Espacio = empezar la sesión (durante la preparación)
+         Ratón: arrastrar un recuadro sobre el móvil (se puede volver a marcar)
 """
 
 import argparse
@@ -19,11 +21,21 @@ import cv2
 from .. import config
 from ..estados import Estado
 from ..observacion import SitioMovil
+from ..preparacion import Preparacion
 from ..motor import MotorDeteccion
 from ..temporizador import Temporizador
 from .dibujo import COLOR_ESTADO, dibujar_observacion, texto
 
 VENTANA = "StudyMate - prueba de camara"
+
+
+def avisar() -> None:
+    """Aviso sonoro (en Windows, el sonido de alerta del sistema)."""
+    try:
+        import winsound
+        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+    except Exception:  # otros sistemas
+        print("\a", end="", flush=True)
 
 
 def main() -> None:
@@ -58,26 +70,44 @@ def main() -> None:
         raise SystemExit(f"Error: {motor.error}")
 
     import time
-    marcar_al_empezar = args.movil_a_la_vista and config.LOCALIZAR_APARCADO == "a_mano"
-    inicio_prueba = time.monotonic()
+    preparacion = Preparacion(time.monotonic())
+    arrastre = {"inicio": None, "actual": None}
+
+    def raton(evento, x, y, _flags, _param):
+        """Arrastrar un recuadro sobre el móvil en la imagen en directo."""
+        if not args.movil_a_la_vista:
+            return
+        if evento == cv2.EVENT_LBUTTONDOWN:
+            arrastre["inicio"] = arrastre["actual"] = (x, y)
+        elif evento == cv2.EVENT_MOUSEMOVE and arrastre["inicio"]:
+            arrastre["actual"] = (x, y)
+        elif evento == cv2.EVENT_LBUTTONUP and arrastre["inicio"]:
+            (x1, y1), arrastre["inicio"] = arrastre["inicio"], None
+            inst_ = motor.ultima()
+            if inst_ is not None and preparacion.marcar_movil(x1, y1, x, y):
+                motor.marcar_movil(inst_.frame, preparacion.movil_marcado)
+
+    cv2.namedWindow(VENTANA)
+    cv2.setMouseCallback(VENTANA, raton)
+    estado_anterior = None
     try:
         while motor.is_alive():
             inst = motor.ultima()
             if inst is not None:
                 frame = inst.frame.copy()
                 dibujar_observacion(frame, inst.observacion)
-                color = COLOR_ESTADO[inst.estado]
-                cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), color, 6)
-                texto(frame, f"Estado: {inst.estado.value}", 0, color, 0.8)
-                texto(frame, f"Tiempo estudiado: {Temporizador.formatear(inst.estudiado_s)}", 1)
-                texto(frame, f"Fotograma sugiere: {inst.candidato.value}", 2, (200, 200, 200), 0.5)
+                if inst.en_sesion:
+                    color = COLOR_ESTADO[inst.estado]
+                    cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), color, 6)
+                    texto(frame, f"Estado: {inst.estado.value}", 0, color, 0.8)
+                    texto(frame, f"Tiempo estudiado: {Temporizador.formatear(inst.estudiado_s)}", 1)
+                    texto(frame, f"Fotograma sugiere: {inst.candidato.value}", 2, (200, 200, 200), 0.5)
                 texto(frame, f"{inst.fps:.1f} fps", 3, (200, 200, 200), 0.5)
                 sitio = inst.sitio_movil
                 if sitio != SitioMovil.SIN_USAR:
                     v = motor.vigilante
-                    buscando = ("Movil: dejalo en la mesa; enseguida podras marcarlo (M)"
-                                if config.LOCALIZAR_APARCADO == "a_mano"
-                                else "Movil: ensenalo a la camara y dejalo en la mesa (M = a mano)")
+                    buscando = ("Movil: sin marcar" if config.LOCALIZAR_APARCADO == "a_mano"
+                                else "Movil: ensenalo a la camara y dejalo en la mesa")
                     if v is not None and v.visto_en_mano:
                         buscando = "Movil: visto! Dejalo en la mesa y aparta la mano"
                         x1, y1, x2, y2 = (int(c) for c in v.ultimo_en_mano)
@@ -91,7 +121,7 @@ def main() -> None:
                             cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 220, 120), 1)
                     avisos = {
                         SitioMovil.BUSCANDO: buscando,
-                        SitioMovil.NO_ENCONTRADO: "Movil: no lo veo. M = marcar a mano, B = buscar",
+                        SitioMovil.NO_ENCONTRADO: "Movil: sin marcar, se vigila solo la mano",
                         SitioMovil.EN_SU_SITIO: "Movil: en su sitio",
                         SitioMovil.FUERA: "Movil: NO esta en su sitio",
                     }
@@ -109,6 +139,21 @@ def main() -> None:
                     pregunta = ("Has cogido el movil? S = no, sigo estudiando / N = si"
                                 if sitio == SitioMovil.FUERA else "Sigues estudiando? S = si / N = no")
                     texto(frame, f"{pregunta}  (pendiente {int(inst.pendiente_s)} s)", 4, (0, 230, 255))
+                if arrastre["inicio"] and arrastre["actual"]:
+                    cv2.rectangle(frame, arrastre["inicio"], arrastre["actual"], (255, 255, 255), 1)
+                if not inst.en_sesion:
+                    ahora_ = time.monotonic()
+                    cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), (255, 220, 120), 6)
+                    texto(frame, "PREPARACION (el tiempo no cuenta)", 0, (255, 220, 120), 0.8)
+                    texto(frame, preparacion.mensaje(ahora_, args.movil_a_la_vista), 1, (255, 255, 255), 0.5)
+                    if preparacion.debe_empezar(ahora_):
+                        preparacion.empezar()
+                        motor.empezar_sesion()
+                elif inst.estado != estado_anterior:
+                    # Alarma: el móvil no está en su sitio y se pregunta.
+                    if inst.estado == Estado.DUDOSO and sitio == SitioMovil.FUERA:
+                        avisar()
+                    estado_anterior = inst.estado
                 cv2.imshow(VENTANA, frame)
 
             if registro is not None and inst is not None:
@@ -135,19 +180,9 @@ def main() -> None:
                 motor.confirmar_dudoso(True)
             elif tecla in (ord("n"), ord("N")):
                 motor.confirmar_dudoso(False)
-            elif tecla in (ord("b"), ord("B")) and motor.vigilante and args.movil_a_la_vista:
-                motor.vigilante.buscar_de_nuevo()
-            elif (tecla in (ord("m"), ord("M"))
-                  or (marcar_al_empezar and time.monotonic() - inicio_prueba > 4)) and motor.vigilante \
-                    and inst is not None and args.movil_a_la_vista:
-                marcar_al_empezar = False
-                # Se congela la imagen y se arrastra un recuadro alrededor del móvil.
-                foto = inst.frame.copy()
-                titulo = "Deja el movil en la mesa, marcalo con el raton y pulsa Enter (C = cancelar)"
-                x, y, w, h = cv2.selectROI(titulo, foto, False)
-                cv2.destroyWindow(titulo)
-                if w > 5 and h > 5:
-                    motor.vigilante.marcar_a_mano(cv2.cvtColor(foto, cv2.COLOR_BGR2RGB), (x, y, x + w, y + h))
+            elif tecla in (13, 32) and not motor.en_sesion:  # Enter o Espacio
+                preparacion.empezar()
+                motor.empezar_sesion()
             if cv2.getWindowProperty(VENTANA, cv2.WND_PROP_VISIBLE) < 1 and inst is not None:
                 break  # se cerró la ventana con la X
     finally:

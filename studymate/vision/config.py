@@ -52,6 +52,11 @@ MARGEN_MANO = 0.5
 MIN_TAMANO_RESPECTO_MANO = 0.40  # área del móvil / área de la mano
 MIN_PINZA = 0.25                 # distancia pulgar-índice / tamaño de la palma
 
+# --- Preparación de la sesión (ver preparacion.py) ---------------------------
+# Segundos para colocar el sitio de estudio y marcar el móvil antes de empezar
+# (se puede empezar antes). Durante la preparación el tiempo no cuenta.
+PREPARACION_S = 30
+
 # --- Móvil aparcado (idea de la profesora, ver aparcado.py) -----------------
 # Cómo se sabe al empezar dónde está el móvil:
 #   "a_mano"      el estudiante lo marca con el ratón sobre la imagen (fiable)

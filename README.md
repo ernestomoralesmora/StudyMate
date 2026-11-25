@@ -134,14 +134,15 @@ a un típex. Sobre la mesa se ve entero, así que:
 
 1. En el cuestionario se pregunta si vas a dejar el móvil a la vista (si lo tienes
    guardado, solo se vigila la mano, como antes).
-2. Al empezar, deja el móvil en la mesa donde la cámara lo vea (por ejemplo, a la
-   izquierda) y márcalo con el ratón sobre la imagen. Tumbado en la mesa YOLO casi nunca
-   lo reconoce, así que el sitio lo indica el estudiante (`LOCALIZAR_APARCADO = "a_mano"`).
-   Hay un modo `"automatico"` en pruebas que lo sigue desde la mano.
+2. **Preparación (30 s, el tiempo no cuenta):** la cámara enseña el sitio de estudio; deja
+   el móvil en la mesa donde se vea (por ejemplo, a la izquierda) y arrastra con el ratón
+   un recuadro sobre él. Con Enter empiezas antes; si no, la sesión empieza sola a los 30 s
+   (si no has marcado el móvil, se vigila solo la mano). Tumbado en la mesa YOLO casi
+   nunca reconoce el móvil, por eso el sitio lo marca el estudiante.
 3. Cada segundo se mira solo ese sitio (YOLO + comparar con la imagen del principio).
    - **En su sitio:** lo que parezca un móvil en la mano se ignora (típex, boli...).
    - **Fuera de su sitio** y en la mano: USANDO_MOVIL.
-   - **Fuera de su sitio** y no se ve: a los 4 s pregunta "¿Has cogido el móvil?".
+   - **Fuera de su sitio** y no se ve: a los 4 s suena un aviso y pregunta "¿Has cogido el móvil?".
      Si respondes que sigues estudiando (lo has guardado), deja de vigilar el sitio.
 
 ```powershell
