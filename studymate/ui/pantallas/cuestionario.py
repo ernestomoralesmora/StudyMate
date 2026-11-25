@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit,
+                               QMessageBox,
                                QPlainTextEdit,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
@@ -48,10 +49,18 @@ class PantallaCuestionario(Pagina):
         fila_tema.addWidget(self.nuevo_tema, 1)
         fila_tema.addWidget(boton("Añadir tema", None, self._anadir_tema))
         self.error_tema = etiqueta("", "error")
+        fila_marcar = QHBoxLayout()
+        fila_marcar.setContentsMargins(0, 0, 0, 0)
+        for texto, valor in (("Marcar todos", True), ("Ninguno", False)):
+            b = boton(texto, None, lambda _=False, v=valor: self._marcar_todos(v))
+            b.setMinimumHeight(32)
+            fila_marcar.addWidget(b)
+        fila_marcar.addStretch()
         caja_temas_total = QWidget()
         capa_total = QVBoxLayout(caja_temas_total)
         capa_total.setContentsMargins(0, 0, 0, 0)
         capa_total.setSpacing(8)
+        capa_total.addLayout(fila_marcar)
         capa_total.addWidget(self.caja_temas)
         capa_total.addLayout(fila_tema)
         capa_total.addWidget(self.error_tema)
@@ -216,10 +225,34 @@ class PantallaCuestionario(Pagina):
         if not temas:
             self.capa_temas.addWidget(etiqueta("Esta asignatura aún no tiene temas: añade al menos uno.", "nota"))
         for tema in temas:
+            fila = QWidget()
+            capa = QHBoxLayout(fila)
+            capa.setContentsMargins(0, 0, 0, 0)
             casilla = QCheckBox(tema)
             casilla.setChecked(tema in marcados)
             self.casillas_temas.append(casilla)
-            self.capa_temas.addWidget(casilla)
+            quitar = boton("Quitar", None, lambda _=False, t=tema: self._quitar_tema(t))
+            quitar.setMinimumHeight(30)
+            quitar.setAccessibleName(f"Quitar el tema {tema} de la asignatura")
+            capa.addWidget(casilla, 1)
+            capa.addWidget(quitar)
+            self.capa_temas.addWidget(fila)
+
+    def _marcar_todos(self, valor: bool) -> None:
+        for casilla in self.casillas_temas:
+            casilla.setChecked(valor)
+
+    def _quitar_tema(self, tema: str) -> None:
+        respuesta = QMessageBox.question(
+            self, "Quitar tema", f"¿Quitar «{tema}» de {self.ventana.asignatura}? Dejará de aparecer "
+            "en esta asignatura (las sesiones ya hechas no cambian).")
+        if respuesta != QMessageBox.Yes:
+            return
+        zoo = z.cargar(self.ventana.carpeta)
+        zoo.recinto(self.ventana.asignatura).quitar_tema(tema)
+        z.guardar(zoo, self.ventana.carpeta)
+        marcados = {c.text() for c in self.casillas_temas if c.isChecked()} - {tema}
+        self._mostrar_temas(marcados)
 
     def _anadir_tema(self) -> None:
         zoo = z.cargar(self.ventana.carpeta)
@@ -241,7 +274,7 @@ class PantallaCuestionario(Pagina):
         self.titulo.setText(f"Estudiar {recinto.asignatura}")
         # Se proponen las respuestas de la última sesión de ESTA asignatura.
         u = recinto.ultimo_cuestionario
-        self._mostrar_temas(set(u.get("temas", [])) or (set(recinto.temas[:1])))
+        self._mostrar_temas(set(u.get("temas", [])) or set(recinto.temas))
         self.tiempo.setValue(u.get("tiempo_disponible_min", 60))
         self.concentracion.setValue(u.get("concentracion_min", 25))
         self.cansancio.setCurrentIndex(u.get("cansancio", 2) - 1)

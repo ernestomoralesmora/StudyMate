@@ -64,7 +64,11 @@ QPushButton#correcta {{ text-align: left; padding: 12px 16px; min-height: 52px; 
                        border: 2px solid {ACENTO}; }}
 QPushButton#fallada {{ text-align: left; padding: 12px 16px; min-height: 52px; background: #3A1616;
                       border: 2px solid {AUSENTE}; }}
-QPushButton#animal {{ background: {SUPERFICIE_2}; border: 1px solid {BORDE}; border-radius: 12px; padding: 0; }}
+QPushButton#animal {{ background: {SUPERFICIE_2}; border: 1px solid {BORDE}; border-radius: 12px; padding: 0;
+    min-height: 96px; min-width: 96px; }}
+QPushButton#eleccion {{ background: {SUPERFICIE}; border: 1px solid {BORDE}; border-radius: 16px; padding: 0;
+    min-height: 210px; min-width: 220px; max-width: 220px; }}
+QPushButton#eleccion:hover, QPushButton#eleccion:focus {{ border: 2px solid {ACENTO}; background: {SUPERFICIE_2}; }}
 QPushButton#animal:checked {{ background: #10331F; border: 2px solid {ACENTO}; }}
 QPushButton#animal:disabled {{ background: {SUPERFICIE}; border: 1px dashed {BORDE}; }}
 QDialog {{ background: {FONDO}; }}

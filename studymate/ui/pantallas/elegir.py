@@ -12,8 +12,8 @@ from ..zoo_widget import AnimalIcono
 class BotonAsignatura(QPushButton):
     def __init__(self, recinto: z.Recinto, al_elegir):
         super().__init__()
-        self.setObjectName("animal")
-        self.setMinimumSize(200, 170)
+        self.setObjectName("eleccion")
+        self.setFixedSize(220, 210)
         self.setAccessibleName(f"Estudiar {recinto.asignatura} ({recinto.animal.nombre})")
         capa = QVBoxLayout(self)
         capa.setContentsMargins(12, 14, 12, 12)
@@ -24,8 +24,10 @@ class BotonAsignatura(QPushButton):
         nombre.setTextFormat(Qt.PlainText)
         nombre.setAlignment(Qt.AlignCenter)
         nombre.setStyleSheet("font-size: 17px;")
-        detalle = etiqueta(f"{recinto.describir_animales()} · "
-                           + (f"{len(recinto.temas)} temas" if recinto.temas else "sin temas"), "nota")
+        temas = (", ".join(recinto.temas[:3]) + ("…" if len(recinto.temas) > 3 else "")) if recinto.temas \
+            else "sin temas todavía"
+        detalle = etiqueta(f"{recinto.describir_animales()}\nTemas: {temas}", "nota", ajustar=True)
+        detalle.setTextFormat(Qt.PlainText)
         detalle.setAlignment(Qt.AlignCenter)
         for w in (nombre, detalle):
             w.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -66,8 +68,8 @@ class PantallaElegir(Pagina):
         for i, r in enumerate(zoo.recintos):
             b = BotonAsignatura(r, self.ventana.elegir_asignatura)
             primero = primero or b
-            self.rejilla.addWidget(b, i // 4, i % 4)
-        self.rejilla.setRowStretch((len(zoo.recintos) + 3) // 4, 1)
-        self.rejilla.setColumnStretch(4, 1)
+            self.rejilla.addWidget(b, i // 5, i % 5, Qt.AlignTop | Qt.AlignLeft)
+        self.rejilla.setRowStretch((len(zoo.recintos) + 4) // 5, 1)
+        self.rejilla.setColumnStretch(5, 1)
         if primero:
             primero.setFocus()
