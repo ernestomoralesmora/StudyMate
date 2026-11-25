@@ -1,9 +1,9 @@
 """Preparación antes de empezar la sesión (idea de la profesora).
 
-Durante PREPARACION_S segundos la cámara enseña el sitio de estudio y el
-estudiante marca con el ratón dónde deja el móvil. Puede empezar antes si ya
-lo tiene todo listo. Al acabar el tiempo, la sesión empieza sola; si no ha
-marcado el móvil, se vigila solo la mano.
+La cámara enseña el sitio de estudio y el estudiante marca con el ratón dónde
+deja el móvil. Por defecto no hay cuenta atrás (PREPARACION_S = None): la sesión
+empieza cuando pulsa «Empezar». Con una duración, empieza sola al acabar. Si no
+ha marcado el móvil, se vigila solo la mano.
 
 Mientras dura la preparación, el temporizador no cuenta.
 Lógica pura: la ventana (OpenCV ahora, PySide6 después) solo la consulta.
@@ -20,11 +20,13 @@ LADO_MINIMO = 12  # px: un recuadro más pequeño se toma como un clic sin quere
 @dataclass
 class Preparacion:
     inicio: float
-    duracion_s: float = config.PREPARACION_S
+    duracion_s: float | None = config.PREPARACION_S  # None: sin cuenta atrás
     movil_marcado: Recuadro | None = None
     empezada: bool = False
 
-    def restante(self, ahora: float) -> float:
+    def restante(self, ahora: float) -> float | None:
+        if self.duracion_s is None:
+            return None
         return max(0.0, self.duracion_s - (ahora - self.inicio))
 
     def marcar_movil(self, x1: float, y1: float, x2: float, y2: float) -> bool:
@@ -37,15 +39,17 @@ class Preparacion:
 
     def debe_empezar(self, ahora: float) -> bool:
         """Se acabó el tiempo: empieza la sesión aunque no haya marcado nada."""
-        return not self.empezada and self.restante(ahora) <= 0
+        restante = self.restante(ahora)
+        return not self.empezada and restante is not None and restante <= 0
 
     def empezar(self) -> None:
         self.empezada = True
 
     def mensaje(self, ahora: float, movil_a_la_vista: bool) -> str:
-        segundos = int(self.restante(ahora) + 0.99)
+        restante = self.restante(ahora)
+        cuenta = "" if restante is None else f" (empieza sola en {int(restante + 0.99)} s)"
         if not movil_a_la_vista:
-            return f"Preparate. Empieza en {segundos} s (Enter = empezar ya)"
+            return f"Preparate. Enter = empezar{cuenta}"
         if self.movil_marcado is None:
-            return f"Deja el movil en la mesa y rodealo con el raton, ajustado ({segundos} s)"
-        return f"Movil marcado. Enter = empezar ya (empieza sola en {segundos} s)"
+            return f"Deja el movil en la mesa y rodealo con el raton, ajustado{cuenta}"
+        return f"Movil marcado. Enter = empezar{cuenta}"

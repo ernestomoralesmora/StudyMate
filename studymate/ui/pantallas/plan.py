@@ -62,8 +62,7 @@ class PantallaPlan(Pagina):
         self.companero.set_expresion("feliz")
         self.titulo.setText("Tu plan para hoy")
         origen = "Plan del asistente" if plan.origen == "llm" else "Plan básico (sin asistente)"
-        modo = " · modo prueba: cada minuto dura 10 s" if self.ventana.modo_prueba else ""
-        self.subtitulo.setText(f"{origen} · {plan.total} min en total{modo}")
+        self.subtitulo.setText(f"{origen} · {plan.total} min en total")
         for aviso in plan.avisos:
             self.capa_contenido.addWidget(etiqueta(f"⚠  {aviso}", "aviso"))
         for i, b in enumerate(plan.bloques, start=1):

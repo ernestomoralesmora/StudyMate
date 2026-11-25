@@ -216,7 +216,10 @@ def prueba_preparacion():
     assert p.debe_empezar(130.1), "a los 30 s empieza sola"
     p.empezar()
     assert not p.debe_empezar(140), "y solo una vez"
-    print("OK  preparación (30 s, marcar el móvil, empezar antes)")
+    q = Preparacion(inicio=100.0, duracion_s=None)
+    assert q.restante(10_000) is None and not q.debe_empezar(10_000), "sin cuenta atrás no empieza sola"
+    assert "Enter" in q.mensaje(200, False)
+    print("OK  preparación (sin cuenta atrás o con 30 s, marcar el móvil, empezar antes)")
 
 
 def prueba_modos_clip():

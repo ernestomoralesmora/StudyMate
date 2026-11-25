@@ -3,10 +3,8 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QRadioButton, QComboBox, QFileDialog, QHBoxLayout, QLineEdit,
-                               QMessageBox,
-                               QPlainTextEdit,
-                               QScrollArea, QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QPlainTextEdit,
+                               QPushButton, QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import unir
@@ -16,6 +14,39 @@ from ..comun import Pagina, boton, etiqueta, tarjeta
 from ..selector_apuntes import SelectorApuntes, nombre_tema
 from ..zoo_widget import AnimalIcono
 
+
+class OpcionMovil(QPushButton):
+    """Tarjeta que se puede elegir (icono, título y explicación) para decir dónde va el móvil."""
+
+    def __init__(self, icono: str, titulo: str, texto: str):
+        super().__init__()
+        self.setObjectName("opcion")
+        self.setCheckable(True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAccessibleName(f"{titulo}. {texto}")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        capa = QHBoxLayout(self)
+        capa.setContentsMargins(16, 14, 16, 14)
+        capa.setSpacing(14)
+        dibujo = etiqueta(icono, "icono_opcion")
+        dibujo.setAlignment(Qt.AlignCenter)
+        textos = QVBoxLayout()
+        textos.setSpacing(4)
+        nombre = etiqueta(titulo)
+        nombre.setStyleSheet("font-weight: 600;")
+        explicacion = etiqueta(texto, "nota")
+        textos.addWidget(nombre)
+        textos.addWidget(explicacion)
+        capa.addWidget(dibujo)
+        capa.addLayout(textos, 1)
+        for w in (dibujo, nombre, explicacion):  # el clic lo recibe el botón
+            w.setAttribute(Qt.WA_TransparentForMouseEvents)
+
+    def sizeHint(self):
+        return self.layout().sizeHint()
+
+    def minimumSizeHint(self):
+        return self.layout().minimumSize()
 
 
 def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
@@ -50,21 +81,33 @@ class PantallaCuestionario(Pagina):
         self.conocimiento = QComboBox()
         for k, v in NIVELES_CONOCIMIENTO.items():
             self.conocimiento.addItem(f"{k} · {v}", k)
-        # Forma de estudiar: solo con apuntes (papel) o con tablet. Con tablet, lo que
+        # Forma de estudiar: con apuntes, con tablet o con las dos cosas. Con tablet, lo que
         # parezca un móvil en la mano no pausa (COCO no distingue tablet de móvil), pero
         # se sigue vigilando el sitio del móvil si está a la vista.
-        self.solo_apuntes = QRadioButton("Solo con apuntes (papel, libro…)")
-        self.con_tablet = QRadioButton("Con tablet")
-        self.forma = QButtonGroup(self)
-        self.forma.addButton(self.solo_apuntes)
-        self.forma.addButton(self.con_tablet)
-        self.solo_apuntes.setChecked(True)
+        self.con_apuntes = QCheckBox("Con apuntes (papel, libro…)")
+        self.con_tablet = QCheckBox("Con tablet")
         dispositivos = QWidget()
         fila = QVBoxLayout(dispositivos)
         fila.setContentsMargins(0, 0, 0, 0)
-        fila.addWidget(self.solo_apuntes)
+        fila.addWidget(self.con_apuntes)
         fila.addWidget(self.con_tablet)
-        self.a_la_vista = QCheckBox("Dejaré el móvil sobre la mesa, donde lo vea la cámara")
+        # Dónde va a estar el móvil: dos tarjetas, se elige una.
+        self.movil_mesa = OpcionMovil(
+            "📱", "Sobre la mesa, a la vista",
+            "Antes de empezar marcarás dónde está. Si lo coges o lo mueves de ahí, te avisamos.")
+        self.movil_guardado = OpcionMovil(
+            "🎒", "Guardado, fuera de la vista",
+            "En la mochila, en otra habitación… Solo se pausa si aparece en tu mano.")
+        self.donde_movil = QButtonGroup(self)
+        self.donde_movil.setExclusive(True)
+        caja_movil = QWidget()
+        capa_movil = QHBoxLayout(caja_movil)
+        capa_movil.setContentsMargins(0, 0, 0, 0)
+        capa_movil.setSpacing(12)
+        for opcion in (self.movil_mesa, self.movil_guardado):
+            self.donde_movil.addButton(opcion)
+            capa_movil.addWidget(opcion, 1)
+        self.movil_mesa.setChecked(True)
         self.con_test = QCheckBox("Quiero un test de 10 preguntas al final de cada bloque")
         # Apuntes guardados de ESTA asignatura (se marcan los de hoy) y texto pegado solo para hoy.
         self.selector = SelectorApuntes()
@@ -77,7 +120,6 @@ class PantallaCuestionario(Pagina):
         capa_apuntes.setSpacing(8)
         capa_apuntes.addWidget(self.selector)
         capa_apuntes.addWidget(self.apuntes)
-        self.modo_prueba = QCheckBox("Modo prueba: cada minuto del plan dura 10 segundos")
         self.error = etiqueta("", "error")
 
         formulario = tarjeta(
@@ -91,12 +133,9 @@ class PantallaCuestionario(Pagina):
             _pregunta("¿Cómo de cansado estás?", self.cansancio),
             _pregunta("¿Cuánto sabes ya del tema?", self.conocimiento),
             _pregunta("¿Cómo vas a estudiar?", dispositivos,
-                      "Si estudias con tablet, usarla no pausará el tiempo."),
-            _pregunta("Tu móvil", self.a_la_vista,
-                      "Si lo dejas a la vista, antes de empezar marcarás dónde está y "
-                      "avisaremos si se mueve de ahí. Si lo tienes guardado, desmárcalo."),
+                      "Marca una o las dos. Si estudias con tablet, usarla no pausará el tiempo."),
+            _pregunta("¿Dónde vas a dejar el móvil?", caja_movil),
             _pregunta("Test", self.con_test),
-            _pregunta("Para probar la aplicación", self.modo_prueba),
             espacio=14, margen=24,
         )
 
@@ -146,11 +185,10 @@ class PantallaCuestionario(Pagina):
         self.concentracion.setValue(u.get("concentracion_min", 25))
         self.cansancio.setCurrentIndex(u.get("cansancio", 2) - 1)
         self.conocimiento.setCurrentIndex(u.get("conocimiento_previo", 2) - 1)
-        permitidos = u.get("dispositivos_permitidos", [])
-        (self.con_tablet if "tablet" in permitidos else self.solo_apuntes).setChecked(True)
-        self.a_la_vista.setChecked(u.get("movil_a_la_vista", True))
+        self.con_tablet.setChecked("tablet" in u.get("dispositivos_permitidos", []))
+        self.con_apuntes.setChecked(u.get("con_apuntes", True))
+        (self.movil_mesa if u.get("movil_a_la_vista", True) else self.movil_guardado).setChecked(True)
         self.con_test.setChecked(u.get("con_test", True))
-        self.modo_prueba.setChecked(self.ventana.modo_prueba)
         self.apuntes.clear()
         # Se marcan los de la última sesión de esta asignatura (la primera vez, todos).
         anteriores = set(u["apuntes"]) if u.get("apuntes") else None
@@ -166,6 +204,9 @@ class PantallaCuestionario(Pagina):
         if not elegidos and not pegado:
             self.error.setText("Marca los apuntes que vas a estudiar hoy (o sube alguno, o pega un texto).")
             return
+        if not self.con_apuntes.isChecked() and not self.con_tablet.isChecked():
+            self.error.setText("Marca cómo vas a estudiar: con apuntes, con tablet o con las dos.")
+            return
         temas = [nombre_tema(nombre) for nombre, _ in elegidos] or [asignatura]
         dispositivos = ["tablet"] if self.con_tablet.isChecked() else []
         try:
@@ -177,7 +218,7 @@ class PantallaCuestionario(Pagina):
                 conocimiento_previo=self.conocimiento.currentData(),
                 dispositivos_permitidos=dispositivos,
                 con_test=self.con_test.isChecked(),
-                movil_a_la_vista=self.a_la_vista.isChecked(),
+                movil_a_la_vista=self.movil_mesa.isChecked(),
                 asignatura=asignatura,
             )
         except ValueError as error:
@@ -190,9 +231,9 @@ class PantallaCuestionario(Pagina):
             "concentracion_min": perfil.concentracion_min, "cansancio": perfil.cansancio,
             "conocimiento_previo": perfil.conocimiento_previo,
             "dispositivos_permitidos": perfil.dispositivos_permitidos,
+            "con_apuntes": self.con_apuntes.isChecked(),
             "movil_a_la_vista": perfil.movil_a_la_vista, "con_test": perfil.con_test,
             "apuntes": sorted(self.selector.marcados()),
         }
         z.guardar(zoo, self.ventana.carpeta)
-        self.ventana.cuestionario_listo(perfil, unir(pegado, elegidos),
-                                        self.modo_prueba.isChecked())
+        self.ventana.cuestionario_listo(perfil, unir(pegado, elegidos))

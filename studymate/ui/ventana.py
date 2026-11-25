@@ -48,7 +48,6 @@ from .pantallas.resumen import PantallaResumen
 from .pantallas.sesion import PantallaSesion
 from .pantallas.test import PantallaTest
 
-SEGUNDOS_POR_MINUTO_PRUEBA = 10  # modo prueba: cada minuto del plan dura 10 s
 
 
 def modelo_movil() -> str:
@@ -68,7 +67,6 @@ class VentanaPrincipal(QMainWindow):
         self.perfil: PerfilSesion | None = None
         self.test_libre = False       # True: test directo, sin sesión de estudio
         self.apuntes = ""
-        self.modo_prueba = False
         self.plan: Plan | None = None
         self.motor: MotorDeteccion | None = None
         self.controlador: ControladorSesion | None = None
@@ -164,8 +162,8 @@ class VentanaPrincipal(QMainWindow):
         return f"Test del bloque {c.indice + 1} · {c.bloque.tema}"
 
     # --- Cuestionario y plan -----------------------------------------------------------
-    def cuestionario_listo(self, perfil: PerfilSesion, apuntes: str, modo_prueba: bool) -> None:
-        self.perfil, self.apuntes, self.modo_prueba = perfil, apuntes, modo_prueba
+    def cuestionario_listo(self, perfil: PerfilSesion, apuntes: str) -> None:
+        self.perfil, self.apuntes = perfil, apuntes
         self.plan = None
         self.ir("plan")
         self.paginas["plan"].cargando()
@@ -198,9 +196,7 @@ class VentanaPrincipal(QMainWindow):
         self.ir("preparacion")
 
     def empezar_sesion(self) -> None:
-        spm = SEGUNDOS_POR_MINUTO_PRUEBA if self.modo_prueba else 60
-        self.controlador = ControladorSesion(self.plan, con_test=self.perfil.con_test,
-                                             segundos_por_minuto=spm)
+        self.controlador = ControladorSesion(self.plan, con_test=self.perfil.con_test)
         self.motor.empezar_sesion()
         self._preparar_test(0)
         self.ir("sesion")
@@ -292,7 +288,6 @@ class VentanaPrincipal(QMainWindow):
             test_aciertos=c.test_aciertos if c.test_total else None,
             test_total=c.test_total or None,
             origen_plan=self.plan.origen,
-            modo_prueba=self.modo_prueba,
             asignatura=asignatura,
         ), self.carpeta)
         self.ir("resumen")

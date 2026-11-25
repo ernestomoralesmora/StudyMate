@@ -46,7 +46,7 @@ Recorrido:
 3. **Zoo:** un recinto pequeño por asignatura con su avance.
 4. **Nueva sesión:** se elige el animal de la asignatura → **cuestionario de esa asignatura**
    (sus temas, que se pueden ampliar; se proponen las respuestas de su última sesión) →
-   **plan** → **preparación** de 30 s (marcar el móvil) → **sesión** por bloques (estudio →
+   **plan** → **preparación** sin cuenta atrás (marcar el móvil y pulsar «Empezar la sesión») → **sesión** por bloques (estudio →
    test → descanso) → **resumen** (nota, autocrítica y su recinto) → vuelta al zoo.
 
 5. **Hacer un test** (botón de cada asignatura): se eligen sus apuntes y el asistente prepara
@@ -58,9 +58,6 @@ cambian con sus propias sesiones. El **historial** se puede ver por asignatura.
 - En la sesión, el tiempo del bloque solo avanza mientras estudias. Si hay una duda,
   aparece una pregunta abajo: botones o teclas **S** / **N**.
 - El test se responde con el ratón o con **A**, **B** y **C**; **Enter** pasa a la siguiente.
-- Para probarlo todo en poco tiempo, marca en el cuestionario **Modo prueba**: cada minuto
-  del plan dura 10 s. Las sesiones de prueba salen en el historial marcadas, pero no cuentan
-  en los totales (el zoo sí cambia).
 - Sin `GROQ_API_KEY` funciona igual, con el plan básico y sin test.
 - **Apuntes:** en el cuestionario de cada asignatura se pueden subir PDF, Word (.docx) o
   texto. Se quedan guardados en esa asignatura (solo su texto, en
@@ -180,9 +177,9 @@ a un típex. Sobre la mesa se ve entero, así que:
 
 1. En el cuestionario se pregunta si vas a dejar el móvil a la vista (si lo tienes
    guardado, solo se vigila la mano, como antes).
-2. **Preparación (30 s, el tiempo no cuenta):** la cámara enseña el sitio de estudio; deja
+2. **Preparación (sin cuenta atrás, el tiempo no cuenta):** la cámara enseña el sitio de estudio; deja
    el móvil en la mesa donde se vea (por ejemplo, a la izquierda) y arrastra con el ratón
-   un recuadro sobre él. Con Enter empiezas antes; si no, la sesión empieza sola a los 30 s
+   un recuadro sobre él. La sesión empieza cuando pulsas «Empezar la sesión» o Enter
    (si no has marcado el móvil, se vigila solo la mano). Tumbado en la mesa YOLO casi
    nunca reconoce el móvil, por eso el sitio lo marca el estudiante.
 3. Cada segundo se mira solo ese sitio: se compara con la imagen del principio (parecido)
@@ -313,7 +310,7 @@ studymate/
 │   ├── temporizador.py  # cuenta solo en ESTUDIANDO
 │   ├── motor.py         # hilo de detección que une todo lo anterior
 │   ├── aparcado.py      # vigilar el sitio del móvil (idea de la profesora)
-│   ├── preparacion.py   # los 30 s de preparación antes de la sesión
+│   ├── preparacion.py   # la preparación antes de la sesión (marcar el móvil)
 │   ├── clip.py          # verificador CLIP (en pruebas, desactivado)
 │   └── pruebas/         # scripts de prueba de cada parte
 ├── llm/

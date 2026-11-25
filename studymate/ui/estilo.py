@@ -69,6 +69,11 @@ QPushButton#animal {{ background: {SUPERFICIE_2}; border: 1px solid {BORDE}; bor
 QPushButton#eleccion {{ background: {SUPERFICIE}; border: 1px solid {BORDE}; border-radius: 16px; padding: 0;
     min-height: 210px; min-width: 220px; max-width: 220px; }}
 QPushButton#eleccion:hover, QPushButton#eleccion:focus {{ border: 2px solid {ACENTO}; background: {SUPERFICIE_2}; }}
+QPushButton#opcion {{ background: {SUPERFICIE_2}; border: 1px solid {BORDE}; border-radius: 14px;
+    padding: 0; min-height: 84px; text-align: left; }}
+QPushButton#opcion:hover, QPushButton#opcion:focus {{ border: 1px solid {ACENTO}; }}
+QPushButton#opcion:checked {{ background: #10331F; border: 2px solid {ACENTO}; }}
+QLabel#icono_opcion {{ font-size: 30px; min-width: 44px; }}
 QPushButton#animal:checked {{ background: #10331F; border: 2px solid {ACENTO}; }}
 QPushButton#animal:disabled {{ background: {SUPERFICIE}; border: 1px dashed {BORDE}; }}
 QDialog {{ background: {FONDO}; }}
