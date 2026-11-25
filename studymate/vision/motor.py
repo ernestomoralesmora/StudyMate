@@ -12,7 +12,7 @@ from . import config
 from .camara import Camara
 from .detectores import Analizador
 from .estados import Estado, MaquinaEstados
-from .observacion import Observacion, clasificar
+from .observacion import Observacion, SitioMovil, clasificar
 from .temporizador import Temporizador
 
 
@@ -26,6 +26,7 @@ class Instantanea:
     pendiente_s: float
     esperando_confirmacion: bool
     fps: float
+    sitio_movil: SitioMovil = SitioMovil.SIN_USAR
 
 
 class MotorDeteccion(threading.Thread):
@@ -34,8 +35,12 @@ class MotorDeteccion(threading.Thread):
         clases_permitidas: frozenset[str] = frozenset(),
         indice_camara: int = 0,
         modelo_movil: str = config.MODELO_OBJETOS,
+        movil_a_la_vista: bool = False,
     ):
+        """`movil_a_la_vista`: el estudiante deja el móvil donde la cámara lo vea
+        (cuestionario). Al empezar se localiza y luego se vigila su sitio."""
         super().__init__(daemon=True, name="deteccion")
+        self.movil_a_la_vista = movil_a_la_vista and "cell phone" not in clases_permitidas
         self.clases_permitidas = clases_permitidas
         self.indice_camara = indice_camara
         self.modelo_movil = modelo_movil
@@ -50,7 +55,8 @@ class MotorDeteccion(threading.Thread):
     def run(self) -> None:
         try:
             with Camara(self.indice_camara) as camara:
-                analizador = Analizador(self.modelo_movil)
+                analizador = Analizador(self.modelo_movil, movil_a_la_vista=self.movil_a_la_vista)
+                self._analizador = analizador
                 try:
                     self._bucle(camara, analizador)
                 finally:
@@ -74,7 +80,12 @@ class MotorDeteccion(threading.Thread):
             candidato = clasificar(obs, self.clases_permitidas)
 
             with self._cerrojo:
-                self.maquina.actualizar(candidato, ahora)
+                fuera = obs.sitio_movil == SitioMovil.FUERA
+                self.maquina.actualizar(
+                    candidato, ahora,
+                    margen_dudoso_s=config.MARGEN_MOVIL_FUERA_S if fuera else None,
+                    insistir=fuera,
+                )
                 self.temporizador.actualizar(self.maquina.estado, ahora)
                 dt = ahora - anterior
                 anterior = ahora
@@ -89,6 +100,7 @@ class MotorDeteccion(threading.Thread):
                     pendiente_s=self.temporizador.pendiente_s,
                     esperando_confirmacion=self.temporizador.esperando_confirmacion,
                     fps=fps,
+                    sitio_movil=obs.sitio_movil,
                 )
             self._listo.set()
 
@@ -112,10 +124,23 @@ class MotorDeteccion(threading.Thread):
                 else 0.0
             )
             self.temporizador.confirmar_dudoso(estaba_estudiando, descuento)
+            # "Sí, sigo estudiando" con el móvil fuera de su sitio: lo ha guardado
+            # o movido. Ya no se vigila el sitio (solo la mano) y no se insiste.
+            analizador = getattr(self, "_analizador", None)
+            if estaba_estudiando and analizador is not None:
+                vigilante = analizador.dispositivos.vigilante
+                if vigilante.estado == SitioMovil.FUERA:
+                    vigilante.desactivar()
             maquina.confirmar(
                 Estado.ESTUDIANDO if estaba_estudiando else Estado.AUSENTE,
                 time.monotonic(),
             )
+
+    @property
+    def recuadro_aparcado(self):
+        """Dónde se dejó el móvil (para dibujarlo), o None."""
+        analizador = getattr(self, "_analizador", None)
+        return analizador.dispositivos.vigilante.recuadro if analizador else None
 
     def detener(self) -> None:
         self._parar.set()

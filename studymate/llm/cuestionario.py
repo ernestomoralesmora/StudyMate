@@ -48,6 +48,9 @@ class PerfilSesion:
     conocimiento_previo: int = 2  # 1 (nada) a 5 (solo repasar)
     dispositivos_permitidos: list[str] = field(default_factory=list)  # claves de DISPOSITIVOS
     con_test: bool = True  # test al final de cada bloque (se puede desactivar)
+    # Deja el móvil sobre la mesa a la vista de la cámara (se vigila su sitio).
+    # False si lo tiene guardado (mochila, otra habitación): solo se vigila la mano.
+    movil_a_la_vista: bool = True
     fecha: str = field(default_factory=lambda: datetime.now().isoformat(timespec="minutes"))
 
     def __post_init__(self) -> None:
@@ -169,6 +172,13 @@ def preguntar_por_consola() -> PerfilSesion:
     print("¿Cuánto sabes ya? " + ", ".join(f"{k}={v}" for k, v in NIVELES_CONOCIMIENTO.items()))
     conocimiento = _pedir_entero("Conocimiento previo", 1, 5, 2)
     dispositivos = _pedir_dispositivos()
+    movil_a_la_vista = False
+    if "movil" not in dispositivos:
+        movil_a_la_vista = _pedir_si_no(
+            "¿Vas a dejar el móvil sobre la mesa, donde la cámara lo vea? "
+            "(si lo tienes guardado, responde n)",
+            anterior.movil_a_la_vista if anterior else True,
+        )
     con_test = _pedir_si_no(
         "¿Quieres un test de 5 preguntas al final de cada bloque?",
         anterior.con_test if anterior else True,
@@ -182,6 +192,7 @@ def preguntar_por_consola() -> PerfilSesion:
         conocimiento_previo=conocimiento,
         dispositivos_permitidos=dispositivos,
         con_test=con_test,
+        movil_a_la_vista=movil_a_la_vista,
     )
     guardar_perfil(perfil)
     return perfil

@@ -52,6 +52,19 @@ MARGEN_MANO = 0.5
 MIN_TAMANO_RESPECTO_MANO = 0.40  # área del móvil / área de la mano
 MIN_PINZA = 0.25                 # distancia pulgar-índice / tamaño de la palma
 
+# --- Móvil aparcado (idea de la profesora, ver aparcado.py) -----------------
+# Al empezar, el móvil se deja a la vista y se localiza; luego se vigila su sitio.
+UMBRAL_APARCADO = 0.40          # puntuación de YOLO para aceptar el móvil sobre la mesa
+VECES_PARA_APARCAR = 5          # tiene que verse en el mismo sitio estas veces...
+INTENTOS_BUSCAR_APARCADO = 25   # ...en como mucho estos análisis (unos 5 s)
+PERIODO_APARCADO_S = 1.0        # cada cuánto se comprueba el sitio
+HOLGURA_APARCADO = 0.25         # cuánto se puede haber movido sin contar como "fuera"
+SIMILITUD_APARCADO = 0.60       # parecido mínimo con la imagen guardada al empezar
+FALLOS_PARA_FUERA = 2           # comprobaciones seguidas sin verlo para decir "fuera"
+# Si el móvil no está en su sitio ni en la mano, se pregunta "¿Has cogido el
+# móvil?" tras estos segundos (más rápido que otras dudas, que esperan 15 s).
+MARGEN_MOVIL_FUERA_S = 4.0
+
 # --- Verificador CLIP (rama mejora/clip, en pruebas) --------------------------
 # Qué decide si una detección junto a la mano cuenta como móvil:
 #   "reglas"        solo las reglas de tamaño y pinza (lo de siempre)

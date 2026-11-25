@@ -54,6 +54,10 @@ ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son norm
 | 13 | En DUDOSO, pulsar **S** (sin destaparte) | Pasa a **ESTUDIANDO** al momento, suma el pendiente y no vuelve a preguntar | | |
 | 14 | En DUDOSO, pulsar **N** | Pasa a **AUSENTE** al momento; al destaparte, vuelve a ESTUDIANDO | | |
 | 14b | Justo después, taparte otra vez 20 s | **No** pregunta (pausa de 10 min) y no cambia de estado | | |
+| 16 | Con `--movil-a-la-vista`, dejar el móvil sobre la mesa a la vista al empezar | En unos segundos, "Movil: en su sitio" y un recuadro verde en el móvil | | |
+| 17 | Con el móvil en su sitio, coger el típex o un boli | Sigue **ESTUDIANDO** | | |
+| 18 | Coger el móvil y usarlo | Recuadro naranja; **USANDO_MOVIL** o, si no se ve en la mano, a los ~4 s "Has cogido el movil?" | | |
+| 19 | Dejarlo otra vez en su sitio | "en su sitio" y a los ~1,5 s **ESTUDIANDO** | | |
 | 15 | Pulsar **Q** | Se cierra y la consola muestra el tiempo total | | |
 
 Repite las pruebas 9 y 10 con el portátil en otra posición o con otra luz (por ejemplo,

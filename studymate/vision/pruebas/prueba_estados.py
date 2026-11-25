@@ -5,7 +5,7 @@ Uso:  python -m studymate.vision.pruebas.prueba_estados
 """
 
 from ..estados import Estado, MaquinaEstados
-from ..observacion import Dispositivo, Observacion, clasificar, marcar_cercania
+from ..observacion import Dispositivo, Observacion, SitioMovil, clasificar, marcar_cercania
 from ..temporizador import Temporizador
 
 E, A, M, D = Estado.ESTUDIANDO, Estado.AUSENTE, Estado.USANDO_MOVIL, Estado.DUDOSO
@@ -70,6 +70,90 @@ def prueba_clasificacion():
     assert not real.descartado and real.cerca_de_mano
     assert clasificar(obs) == M
     print("OK  clasificación")
+
+
+def prueba_movil_aparcado():
+    """El móvil dejado a la vista al empezar: localizarlo, vigilarlo y preguntar."""
+    import numpy as np
+
+    from ..aparcado import VigilanteMovil, cuadros_imagen_completa
+
+    assert cuadros_imagen_completa(640, 480) == [(0, 0, 480, 480), (160, 0, 640, 480)]
+
+    # Imagen con un "móvil" (rectángulo con dibujo) en la mesa, abajo a la derecha.
+    rng = np.random.default_rng(1)
+    frame = np.full((480, 640, 3), 90, np.uint8)
+    frame[380:460, 520:570] = rng.integers(0, 255, (80, 50, 3), dtype=np.uint8)
+    real = (520, 380, 570, 460)
+    sitio = {"ahi": True}
+
+    v = VigilanteMovil(lambda r: [], activo=False)
+    assert v.estado == SitioMovil.SIN_USAR and not v.vigilando
+
+    # Búsqueda: se alterna qué cuadro "ve" el móvil como haría YOLO.
+    llamadas = {"n": 0}
+
+    def det_busqueda(recorte):
+        llamadas["n"] += 1
+        segundo = llamadas["n"] % 2 == 0
+        return [("cell phone", 0.8, (360, 380, 410, 460))] if segundo and sitio["ahi"] else []
+
+    v = VigilanteMovil(det_busqueda, activo=True)
+    assert v.estado == SitioMovil.BUSCANDO
+    for _ in range(5):
+        v.buscar(frame)
+    assert v.estado == SitioMovil.EN_SU_SITIO, v.estado
+    assert tuple(round(c) for c in v.recuadro) == real and v.plantilla.shape[0] == 104
+
+    # Comprobaciones: YOLO no lo ve, pero la imagen coincide -> sigue en su sitio.
+    v.detectar = lambda r: []
+    v.comprobar(frame)
+    assert v.estado == SitioMovil.EN_SU_SITIO and v.ultima_similitud > 0.9
+    # Lo coge: la mesa queda vacía. Hacen falta 2 comprobaciones para "fuera".
+    sin_movil = frame.copy()
+    sin_movil[380:460, 520:570] = 90
+    v.comprobar(sin_movil)
+    assert v.estado == SitioMovil.EN_SU_SITIO
+    v.comprobar(sin_movil)
+    assert v.estado == SitioMovil.FUERA
+    v.comprobar(frame)  # lo devuelve
+    assert v.estado == SitioMovil.EN_SU_SITIO
+
+    # Si no aparece al empezar, se vigila solo la mano.
+    v = VigilanteMovil(lambda r: [], activo=True)
+    for _ in range(30):
+        v.buscar(frame)
+    assert v.estado == SitioMovil.NO_ENCONTRADO and not v.vigilando
+
+    # Clasificación con el móvil aparcado.
+    cara, mano = (100, 100, 200, 200), (300, 300, 380, 380)
+    tipex = Dispositivo("cell phone", 0.9, (310, 260, 370, 370))
+    obs = Observacion(caras=[cara], manos=[mano], pinza_manos=[0.7], dispositivos=[tipex],
+                      sitio_movil=SitioMovil.EN_SU_SITIO)
+    marcar_cercania(obs)
+    assert clasificar(obs) == E, "el móvil está en la mesa: lo de la mano es otra cosa"
+    obs.sitio_movil = SitioMovil.FUERA
+    assert clasificar(obs) == M, "fuera de su sitio y en la mano: usando el móvil"
+    assert clasificar(Observacion(caras=[cara], sitio_movil=SitioMovil.FUERA)) == D
+    assert clasificar(Observacion(sitio_movil=SitioMovil.FUERA)) == A
+    assert clasificar(Observacion(sitio_movil=SitioMovil.EN_SU_SITIO)) == A
+
+    # Máquina: con el móvil fuera se pregunta a los 4 s (no a los 15) y aunque
+    # se haya preguntado hace poco.
+    m, t = MaquinaEstados(margen_s=1.5, estado_inicial=E), Temporizador()
+    m.confirmar(E, 0.0)  # se respondió a otra duda hace nada...
+    t_ = simular(m, t, E, 3, 0.0)  # ...y luego todo normal
+    for _ in range(45):
+        t_ += 0.1
+        m.actualizar(D, t_, margen_dudoso_s=4.0, insistir=True)
+    assert m.estado == D, m.estado
+    # Sin insistir, esa misma duda no preguntaría (pausa de 10 min entre preguntas).
+    m2 = MaquinaEstados(margen_s=1.5, estado_inicial=E)
+    m2.confirmar(E, 0.0)
+    t_ = simular(m2, Temporizador(), E, 3, 0.0)
+    simular(m2, Temporizador(), D, 20, t_)
+    assert m2.estado == E
+    print("OK  móvil aparcado (localizar, vigilar, preguntar)")
 
 
 def prueba_modos_clip():
@@ -189,6 +273,7 @@ def prueba_preguntas():
 if __name__ == "__main__":
     prueba_clasificacion()
     prueba_modos_clip()
+    prueba_movil_aparcado()
     prueba_margen()
     prueba_temporizador()
     prueba_preguntas()

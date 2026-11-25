@@ -65,7 +65,7 @@ class MaquinaEstados:
         self._sin_duda_desde = None
         self._pendiente = None
 
-    def _resolver_duda(self, candidato: Estado, ahora: float) -> Estado:
+    def _resolver_duda(self, candidato: Estado, ahora: float, insistir: bool = False) -> Estado:
         """Sustituye DUDOSO por la respuesta del usuario cuando todavía vale."""
         if self._confirmado is not None:
             if candidato == Estado.DUDOSO:
@@ -80,18 +80,27 @@ class MaquinaEstados:
             candidato == Estado.DUDOSO
             and ahora - self._respondido_en < self.pausa_preguntas_s
             and self.estado != Estado.DUDOSO
+            and not insistir
         ):
             # Se preguntó hace poco: no se insiste y la duda no cambia nada.
             # (No se usa la última respuesta: si fue "no", pausaría sin preguntar.)
             return self.estado
         return candidato
 
-    def actualizar(self, candidato: Estado, ahora: float) -> bool:
+    def actualizar(
+        self,
+        candidato: Estado,
+        ahora: float,
+        margen_dudoso_s: float | None = None,
+        insistir: bool = False,
+    ) -> bool:
         """Registra la situación del fotograma actual.
 
-        Devuelve True si el estado ha cambiado en esta llamada.
+        `margen_dudoso_s` sustituye a MARGEN_DUDOSO_S para esta duda e `insistir`
+        pregunta aunque se haya preguntado hace poco (se usan cuando el móvil
+        aparcado ha desaparecido de su sitio). Devuelve True si el estado ha cambiado.
         """
-        candidato = self._resolver_duda(candidato, ahora)
+        candidato = self._resolver_duda(candidato, ahora, insistir)
 
         if self._pendiente is not None and candidato == self._pendiente:
             self._visto = ahora
@@ -102,7 +111,10 @@ class MaquinaEstados:
             self._pendiente = None if candidato == self.estado else candidato
             self._desde = self._visto = ahora
 
-        margen = self.margen_dudoso_s if self._pendiente == Estado.DUDOSO else self.margen_s
+        if self._pendiente == Estado.DUDOSO:
+            margen = self.margen_dudoso_s if margen_dudoso_s is None else margen_dudoso_s
+        else:
+            margen = self.margen_s
         if self._pendiente is not None and ahora - self._desde >= margen:
             if self._pendiente == Estado.DUDOSO:
                 self.duda_previa_s = ahora - self._desde

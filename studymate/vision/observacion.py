@@ -5,11 +5,20 @@ Los recuadros son tuplas (x1, y1, x2, y2) en píxeles.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from . import config
 from .estados import Estado
 
 Recuadro = tuple[float, float, float, float]
+
+
+class SitioMovil(str, Enum):
+    SIN_USAR = "sin usar"            # el estudiante lo tiene guardado: no se vigila
+    BUSCANDO = "buscando"            # localizándolo al empezar
+    NO_ENCONTRADO = "no encontrado"  # no se ha visto: se vigila solo la mano
+    EN_SU_SITIO = "en su sitio"
+    FUERA = "fuera"                  # no está donde se dejó
 
 
 @dataclass
@@ -38,6 +47,8 @@ class Observacion:
     pinza_manos: list[float] = field(default_factory=list)
     apertura_manos: list[float] = field(default_factory=list)
     dispositivos: list[Dispositivo] = field(default_factory=list)
+    # Dónde está el móvil que se dejó a la vista al empezar (ver aparcado.py).
+    sitio_movil: SitioMovil = SitioMovil.SIN_USAR
 
     @property
     def hay_cara(self) -> bool:
@@ -123,6 +134,10 @@ def clasificar(
     clases_permitidas: frozenset[str] = frozenset(),
 ) -> Estado:
     """Devuelve el estado que sugiere este fotograma."""
+    # Móvil aparcado y en su sitio: lo que parezca un móvil en la mano es otra
+    # cosa (típex, boli, cartera...). Solo cuenta si hay alguien delante.
+    if obs.sitio_movil == SitioMovil.EN_SU_SITIO:
+        return Estado.ESTUDIANDO if obs.hay_cara else (Estado.DUDOSO if obs.manos else Estado.AUSENTE)
     en_mano = [
         dispositivo
         for dispositivo in obs.dispositivos
@@ -158,6 +173,10 @@ def clasificar(
 
                 if altura_oreja and (lado_izquierdo or lado_derecho):
                     return Estado.DUDOSO
+
+    # El móvil no está donde se dejó y no se ve en la mano: se pregunta.
+    if obs.sitio_movil == SitioMovil.FUERA and obs.hay_cara:
+        return Estado.DUDOSO
 
     if obs.hay_cara:
         return Estado.ESTUDIANDO

@@ -127,6 +127,27 @@ Para comparar con los detectores de MediaPipe, los dos scripts de prueba admiten
 **Privacidad:** los fotogramas se procesan en memoria. No se guardan ni se envían a
 internet.
 
+### Móvil aparcado (idea de la profesora)
+
+Reconocer el móvil en la mano falla porque la mano tapa la mitad y lo que queda se parece
+a un típex. Sobre la mesa se ve entero, así que:
+
+1. En el cuestionario se pregunta si vas a dejar el móvil a la vista (si lo tienes
+   guardado, solo se vigila la mano, como antes).
+2. Al empezar, deja el móvil sobre la mesa donde la cámara lo vea. En unos segundos se
+   localiza (tiene que verse 5 veces en el mismo sitio).
+3. Cada segundo se mira solo ese sitio (YOLO + comparar con la imagen del principio).
+   - **En su sitio:** lo que parezca un móvil en la mano se ignora (típex, boli...).
+   - **Fuera de su sitio** y en la mano: USANDO_MOVIL.
+   - **Fuera de su sitio** y no se ve: a los 4 s pregunta "¿Has cogido el móvil?".
+     Si respondes que sigues estudiando (lo has guardado), deja de vigilar el sitio.
+
+```powershell
+python -m studymate.vision.pruebas.prueba_camara --modelo yolo_s --movil-a-la-vista
+```
+
+Los valores están en `config.py`, apartado "Móvil aparcado".
+
 ### Verificador CLIP (en pruebas, rama `mejora/clip`)
 
 YOLO a veces confunde con un móvil un boli, el típex o la cartera. Las reglas de tamaño y

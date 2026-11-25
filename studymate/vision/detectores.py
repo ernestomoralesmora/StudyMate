@@ -16,6 +16,7 @@ from mediapipe.tasks.python import vision as mpv
 
 from . import config
 from .modelos import ruta_modelo
+from .aparcado import VigilanteMovil
 from .observacion import Dispositivo, Observacion, Recuadro, marcar_cercania
 
 
@@ -150,7 +151,12 @@ class _MovilMediapipe:
 class DetectorDispositivos(threading.Thread):
     """Busca el móvil en las zonas indicadas sin bloquear la cámara."""
 
-    def __init__(self, modelo: str = config.MODELO_OBJETOS, usar_clip: bool = False):
+    def __init__(
+        self,
+        modelo: str = config.MODELO_OBJETOS,
+        usar_clip: bool = False,
+        movil_a_la_vista: bool = False,
+    ):
         super().__init__(daemon=True, name="deteccion-movil")
         self.modelo = modelo
         # CLIP solo se carga si hace falta (tarda unos segundos y ocupa memoria).
@@ -170,10 +176,17 @@ class DetectorDispositivos(threading.Thread):
         self._siguiente_zona = 0
         self._ultimo: tuple[float, list[Dispositivo]] = (-1e9, [])
         self.recorte_actual: tuple[int, int, int, int] | None = None
+        # Vigila el sitio donde se dejó el móvil (usa el mismo detector).
+        self.vigilante = VigilanteMovil(self._motor.detectar, activo=movil_a_la_vista)
+        self._ultima_comprobacion = -1e9
 
     def enviar(self, frame_rgb, zonas: list[Recuadro]) -> None:
-        """Deja el fotograma más reciente para analizarlo en segundo plano."""
-        if not zonas:
+        """Deja el fotograma más reciente para analizarlo en segundo plano.
+
+        Aunque no haya zonas (manos o cara), el fotograma sirve para vigilar
+        el móvil aparcado.
+        """
+        if not zonas and not self.vigilante.activo:
             return
 
         with self._cerrojo:
@@ -208,6 +221,18 @@ class DetectorDispositivos(threading.Thread):
             self._motor.cerrar()
 
     def _procesar(self, frame_rgb, zonas: list[Recuadro]) -> None:
+        # Móvil aparcado: al empezar se busca en toda la imagen; después se
+        # comprueba su sitio cada PERIODO_APARCADO_S.
+        vigilante = self.vigilante
+        ahora = time.monotonic()
+        if vigilante.estado.value == "buscando":
+            vigilante.buscar(frame_rgb)
+        elif vigilante.vigilando and ahora - self._ultima_comprobacion >= config.PERIODO_APARCADO_S:
+            vigilante.comprobar(frame_rgb)
+            self._ultima_comprobacion = ahora
+        if not zonas:
+            return
+
         alto, ancho = frame_rgb.shape[:2]
         zona = zonas[self._siguiente_zona % len(zonas)]
         self._siguiente_zona += 1
@@ -245,6 +270,7 @@ class Analizador:
         modelo_movil: str = config.MODELO_OBJETOS,
         modo_verificacion: str = config.MODO_VERIFICACION,
         cargar_clip: bool | None = None,
+        movil_a_la_vista: bool = False,
     ):
         """`cargar_clip`: None = solo si el modo lo usa; True = siempre (para comparar)."""
         self.modo_verificacion = modo_verificacion
@@ -268,7 +294,9 @@ class Analizador:
             )
         )
 
-        self.dispositivos = DetectorDispositivos(modelo_movil, usar_clip=cargar_clip)
+        self.dispositivos = DetectorDispositivos(
+            modelo_movil, usar_clip=cargar_clip, movil_a_la_vista=movil_a_la_vista
+        )
         self.dispositivos.start()
         self._ultimo_ts = -1
 
@@ -302,8 +330,8 @@ class Analizador:
 
         # Si no vemos ninguna mano, buscamos el móvil alrededor de la cara.
         zonas_busqueda = obs.manos + obs.caras[:1]
-        if zonas_busqueda:
-            self.dispositivos.enviar(rgb, zonas_busqueda)
+        self.dispositivos.enviar(rgb, zonas_busqueda)
+        obs.sitio_movil = self.dispositivos.vigilante.estado
 
         obs.dispositivos = self.dispositivos.resultado(time.monotonic())
         marcar_cercania(obs, modo=self.modo_verificacion)
