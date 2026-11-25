@@ -1,8 +1,12 @@
 """Cuestionario antes de cada sesión (RF5, RF11): con él se adapta el plan."""
 
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QPlainTextEdit,
+from pathlib import Path
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QPlainTextEdit,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
+from studymate.llm.apuntes import ErrorApuntes, leer_archivo, unir
 from studymate.llm.cuestionario import (NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion,
                                         cargar_perfil, guardar_perfil)
 
@@ -54,9 +58,29 @@ class PantallaCuestionario(Pagina):
         self.a_la_vista = QCheckBox("Dejaré el móvil sobre la mesa, donde lo vea la cámara")
         self.permitir_movil.toggled.connect(self._actualizar_a_la_vista)
         self.con_test = QCheckBox("Quiero un test de 5 preguntas al final de cada bloque")
+        # Apuntes: archivos (PDF, Word, texto) y, si se quiere, texto pegado.
+        self.archivos: list[tuple[str, str]] = []  # (nombre, texto)
+        self.lista_archivos = etiqueta("Ningún archivo.", "nota")
+        self.lista_archivos.setTextFormat(Qt.PlainText)
+        self.error_archivos = etiqueta("", "error")
+        subir = boton("Subir apuntes (PDF, Word o texto)…", "primario", self._subir)
+        self.quitar = boton("Quitar los archivos", None, self._quitar)
+        self.quitar.setEnabled(False)
+        fila_archivos = QHBoxLayout()
+        fila_archivos.addWidget(subir)
+        fila_archivos.addWidget(self.quitar)
+        fila_archivos.addStretch()
         self.apuntes = QPlainTextEdit()
-        self.apuntes.setPlaceholderText("Pega aquí tus apuntes (opcional). Solo se envía el texto al asistente.")
-        self.apuntes.setFixedHeight(110)
+        self.apuntes.setPlaceholderText("También puedes pegar aquí texto (opcional).")
+        self.apuntes.setFixedHeight(80)
+        caja_apuntes = QWidget()
+        capa_apuntes = QVBoxLayout(caja_apuntes)
+        capa_apuntes.setContentsMargins(0, 0, 0, 0)
+        capa_apuntes.setSpacing(8)
+        capa_apuntes.addLayout(fila_archivos)
+        capa_apuntes.addWidget(self.lista_archivos)
+        capa_apuntes.addWidget(self.error_archivos)
+        capa_apuntes.addWidget(self.apuntes)
         self.modo_prueba = QCheckBox("Modo prueba: cada minuto del plan dura 10 segundos")
         self.error = etiqueta("", "error")
 
@@ -73,7 +97,10 @@ class PantallaCuestionario(Pagina):
                       "Si lo dejas a la vista, antes de empezar marcarás dónde está y "
                       "avisaremos si se mueve de ahí. Si lo tienes guardado, desmárcalo."),
             _pregunta("Test", self.con_test),
-            _pregunta("Apuntes", self.apuntes, "Si los pegas, el plan y las preguntas se basan en ellos."),
+            _pregunta("Tus apuntes (opcional)", caja_apuntes,
+                      "Si los subes, el plan y las preguntas del test se basan en ellos. Solo se lee "
+                      "el texto, no se guarda ninguna copia, y al asistente se le manda solo la parte "
+                      "de cada tema."),
             _pregunta("Para probar la aplicación", self.modo_prueba),
             espacio=14, margen=24,
         )
@@ -101,6 +128,42 @@ class PantallaCuestionario(Pagina):
         capa.addWidget(self.error)
         capa.addLayout(botones)
 
+    def _subir(self) -> None:
+        rutas, _ = QFileDialog.getOpenFileNames(
+            self, "Elige tus apuntes", str(Path.home()),
+            "Apuntes (*.pdf *.docx *.txt *.md);;PDF (*.pdf);;Word (*.docx);;Texto (*.txt *.md)",
+        )
+        if not rutas:
+            return
+        errores = []
+        QApplication.setOverrideCursor(Qt.WaitCursor)  # un PDF largo tarda unos segundos
+        try:
+            for ruta in rutas:
+                nombre = Path(ruta).name
+                if any(n == nombre for n, _ in self.archivos):
+                    continue
+                try:
+                    self.archivos.append((nombre, leer_archivo(ruta)))
+                except ErrorApuntes as error:
+                    errores.append(str(error))
+        finally:
+            QApplication.restoreOverrideCursor()
+        self.error_archivos.setText("\n".join(errores))
+        self._mostrar_archivos()
+
+    def _quitar(self) -> None:
+        self.archivos = []
+        self.error_archivos.setText("")
+        self._mostrar_archivos()
+
+    def _mostrar_archivos(self) -> None:
+        if not self.archivos:
+            self.lista_archivos.setText("Ningún archivo.")
+        else:
+            self.lista_archivos.setText("\n".join(
+                f"📄 {nombre} · {len(texto) // 1000 or 1} mil caracteres" for nombre, texto in self.archivos))
+        self.quitar.setEnabled(bool(self.archivos))
+
     def _actualizar_a_la_vista(self) -> None:
         # Si el móvil está permitido, no se vigila su sitio.
         self.a_la_vista.setEnabled(not self.permitir_movil.isChecked())
@@ -121,6 +184,7 @@ class PantallaCuestionario(Pagina):
         self._actualizar_a_la_vista()
         self.con_test.setChecked(anterior.con_test if anterior else True)
         self.modo_prueba.setChecked(self.ventana.modo_prueba)
+        self._mostrar_archivos()
         self.error.setText("")
         self.tiempo.setFocus()
 
@@ -143,5 +207,5 @@ class PantallaCuestionario(Pagina):
             self.error.setText(str(error))
             return
         guardar_perfil(perfil)
-        self.ventana.cuestionario_listo(perfil, self.apuntes.toPlainText().strip(),
+        self.ventana.cuestionario_listo(perfil, unir(self.apuntes.toPlainText(), self.archivos),
                                         self.modo_prueba.isChecked())

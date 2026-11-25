@@ -72,7 +72,7 @@ class PantallaPlan(Pagina):
                 partes.append(f"{b.minutos_test} min de test")
             if b.minutos_descanso and i < len(plan.bloques):
                 partes.append(f"{b.minutos_descanso} min de descanso")
-            nombre = etiqueta(f"Bloque {i} · {b.tema}", "cifra")
+            nombre = etiqueta(f"Bloque {i} · {b.tema}", "cifra", ajustar=True)
             nombre.setTextFormat(Qt.PlainText)
             objetivo = etiqueta(b.objetivo)
             objetivo.setTextFormat(Qt.PlainText)

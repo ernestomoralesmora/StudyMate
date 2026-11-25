@@ -66,7 +66,7 @@ class PantallaSesion(Pagina):
         # Pregunta cuando hay una duda.
         self.banner = QFrame()
         self.banner.setObjectName("banner")
-        self.pregunta = etiqueta("", "cifra")
+        self.pregunta = etiqueta("", "cifra", ajustar=True)
         self.si = boton("Sí, sigo estudiando  (S)", "primario", lambda: self._responder(True))
         self.no = boton("No  (N)", None, lambda: self._responder(False))
         fila = QHBoxLayout(self.banner)

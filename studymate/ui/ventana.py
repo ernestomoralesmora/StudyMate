@@ -16,6 +16,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 
 from studymate.gamificacion import pecera as pc
+from studymate.llm.apuntes import para_plan, para_test
 from studymate.llm.cliente_groq import consultar_groq
 from studymate.llm.cuestionario import PerfilSesion
 from studymate.llm.plan import Plan, generar_plan, plan_basico
@@ -99,7 +100,8 @@ class VentanaPrincipal(QMainWindow):
         self.plan = None
         self.ir("plan")
         self.paginas["plan"].cargando()
-        self._lanzar(lambda: generar_plan(perfil, apuntes=apuntes or None), "plan",
+        apuntes_plan = para_plan(apuntes, perfil.temas) if apuntes else None
+        self._lanzar(lambda: generar_plan(perfil, apuntes=apuntes_plan), "plan",
                      self._plan_listo, self._plan_fallo)
 
     def _plan_listo(self, _etiqueta, plan: Plan) -> None:
@@ -228,7 +230,8 @@ class VentanaPrincipal(QMainWindow):
         if not bloque.minutos_test:
             return
         texto = (f"Tema del bloque: {bloque.tema}\nObjetivo del bloque: {bloque.objetivo}\n\n"
-                 + (self.apuntes or "No hay apuntes: pregunta por los conceptos básicos de este tema."))
+                 + (para_test(self.apuntes, bloque.tema, bloque.objetivo) if self.apuntes
+                    else "No hay apuntes: pregunta por los conceptos básicos de este tema."))
         self._preguntas[indice] = ("cargando", None)
         self._lanzar(lambda: generar_preguntas(texto, consultar_groq), indice,
                      self._preguntas_listas, self._preguntas_fallo)

@@ -40,7 +40,7 @@ class PantallaTest(Pagina):
         textos.addWidget(self.progreso)
         cabecera.addLayout(textos, 1)
 
-        self.enunciado = etiqueta("", "cifra")
+        self.enunciado = etiqueta("", "cifra", ajustar=True)
         self.enunciado.setTextFormat(Qt.PlainText)
         self.opciones = [boton("", "opcion", lambda _=False, l=l: self._responder(l)) for l in LETRAS]
         self.explicacion = etiqueta("")

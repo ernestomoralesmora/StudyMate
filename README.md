@@ -49,6 +49,10 @@ pecera) → panel principal. El **historial** se abre desde el panel principal.
   del plan dura 10 s. Las sesiones de prueba salen en el historial marcadas, pero no cuentan
   en los totales (la pecera sí cambia).
 - Sin `GROQ_API_KEY` funciona igual, con el plan básico y sin test.
+- **Apuntes:** en el cuestionario se pueden subir PDF, Word (.docx) o texto. Solo se lee el
+  texto (un PDF escaneado, que es solo imagen, no sirve). Para el plan y para el test de cada
+  bloque se manda al asistente solo la parte de los apuntes más relacionada con ese tema
+  (`llm/apuntes.py`), porque un temario entero no cabe en una consulta.
 - Perfil, pecera e historial se guardan en `studymate/data/` (no se suben al repositorio).
 
 Pruebas sin cámara ni ventana de la lógica de la sesión y el historial:

@@ -3,7 +3,7 @@
 import cv2
 from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 
 class Pagina(QWidget):
@@ -36,11 +36,21 @@ def tarjeta(*hijos, espacio: int = 12, margen: int = 20) -> QFrame:
     return marco
 
 
-def etiqueta(texto: str = "", nombre: str | None = None, ajustar: bool = True) -> QLabel:
+# Textos de una sola línea (cifras grandes, rótulos): sin ajuste de línea.
+UNA_LINEA = ("cifra", "grande", "seccion")
+
+
+def etiqueta(texto: str = "", nombre: str | None = None, ajustar: bool | None = None) -> QLabel:
     e = QLabel(texto)
     if nombre:
         e.setObjectName(nombre)
-    e.setWordWrap(ajustar)
+    e.setWordWrap(nombre not in UNA_LINEA if ajustar is None else ajustar)
+    # Que la ventana nunca la haga más baja de lo que necesita el texto: si no,
+    # al maximizar se cortaban las letras. (Se modifica la política que ya tiene
+    # para no perder el "alto según el ancho" de los textos con varias líneas.)
+    politica = e.sizePolicy()
+    politica.setVerticalPolicy(QSizePolicy.Minimum)
+    e.setSizePolicy(politica)
     return e
 
 

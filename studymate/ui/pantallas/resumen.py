@@ -21,7 +21,7 @@ class PantallaResumen(Pagina):
         self.companero = Companero("feliz", lado_minimo=96)
         self.companero.setFixedSize(96, 96)
         self.titulo = etiqueta("Sesión terminada", "titulo")
-        self.nota = etiqueta("", "cifra")
+        self.nota = etiqueta("", "cifra", ajustar=True)
         cabecera = QHBoxLayout()
         cabecera.addWidget(self.companero)
         textos = QVBoxLayout()
