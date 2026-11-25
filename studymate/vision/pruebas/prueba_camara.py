@@ -4,9 +4,9 @@ Uso (desde la raíz del repositorio):
     python -m studymate.vision.pruebas.prueba_camara [--camara N] [--permitir-movil] [--modelo M]
                                                      [--movil-a-la-vista]
 
-Con --movil-a-la-vista, al empezar enseña el móvil a la cámara y déjalo en la mesa,
-donde se vea (por ejemplo, a la izquierda), y aparta la mano: ese queda como su
-sitio y se vigila. Si no funciona, pulsa M y marca el móvil a mano.
+Con --movil-a-la-vista, al empezar deja el móvil en la mesa donde la cámara lo vea
+(por ejemplo, a la izquierda): se abre una ventana para marcarlo con el ratón y
+pulsar Enter. Ese queda como su sitio y se vigila. M lo vuelve a marcar.
 
 Teclas:  Q / Esc = salir   S = sí estaba estudiando   N = no estaba estudiando
          Con --movil-a-la-vista:  M = marcar el móvil a mano   B = buscarlo otra vez
@@ -57,6 +57,9 @@ def main() -> None:
     if motor.error:
         raise SystemExit(f"Error: {motor.error}")
 
+    import time
+    marcar_al_empezar = args.movil_a_la_vista and config.LOCALIZAR_APARCADO == "a_mano"
+    inicio_prueba = time.monotonic()
     try:
         while motor.is_alive():
             inst = motor.ultima()
@@ -72,7 +75,9 @@ def main() -> None:
                 sitio = inst.sitio_movil
                 if sitio != SitioMovil.SIN_USAR:
                     v = motor.vigilante
-                    buscando = "Movil: ensenalo a la camara y dejalo en la mesa (M = a mano)"
+                    buscando = ("Movil: dejalo en la mesa; enseguida podras marcarlo (M)"
+                                if config.LOCALIZAR_APARCADO == "a_mano"
+                                else "Movil: ensenalo a la camara y dejalo en la mesa (M = a mano)")
                     if v is not None and v.visto_en_mano:
                         buscando = "Movil: visto! Dejalo en la mesa y aparta la mano"
                         x1, y1, x2, y2 = (int(c) for c in v.ultimo_en_mano)
@@ -107,7 +112,6 @@ def main() -> None:
                 cv2.imshow(VENTANA, frame)
 
             if registro is not None and inst is not None:
-                import time
                 ahora = time.monotonic()
                 if ahora - ultimo_registro >= 0.5:
                     ultimo_registro = ahora
@@ -133,11 +137,15 @@ def main() -> None:
                 motor.confirmar_dudoso(False)
             elif tecla in (ord("b"), ord("B")) and motor.vigilante and args.movil_a_la_vista:
                 motor.vigilante.buscar_de_nuevo()
-            elif tecla in (ord("m"), ord("M")) and motor.vigilante and inst is not None and args.movil_a_la_vista:
+            elif (tecla in (ord("m"), ord("M"))
+                  or (marcar_al_empezar and time.monotonic() - inicio_prueba > 4)) and motor.vigilante \
+                    and inst is not None and args.movil_a_la_vista:
+                marcar_al_empezar = False
                 # Se congela la imagen y se arrastra un recuadro alrededor del móvil.
                 foto = inst.frame.copy()
-                x, y, w, h = cv2.selectROI("Marca el movil y pulsa Enter (C = cancelar)", foto, False)
-                cv2.destroyWindow("Marca el movil y pulsa Enter (C = cancelar)")
+                titulo = "Deja el movil en la mesa, marcalo con el raton y pulsa Enter (C = cancelar)"
+                x, y, w, h = cv2.selectROI(titulo, foto, False)
+                cv2.destroyWindow(titulo)
                 if w > 5 and h > 5:
                     motor.vigilante.marcar_a_mano(cv2.cvtColor(foto, cv2.COLOR_BGR2RGB), (x, y, x + w, y + h))
             if cv2.getWindowProperty(VENTANA, cv2.WND_PROP_VISIBLE) < 1 and inst is not None:

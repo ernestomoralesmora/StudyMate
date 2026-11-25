@@ -54,7 +54,7 @@ ya viene en el repositorio. Las líneas `INFO:` y `W0000` de la consola son norm
 | 13 | En DUDOSO, pulsar **S** (sin destaparte) | Pasa a **ESTUDIANDO** al momento, suma el pendiente y no vuelve a preguntar | | |
 | 14 | En DUDOSO, pulsar **N** | Pasa a **AUSENTE** al momento; al destaparte, vuelve a ESTUDIANDO | | |
 | 14b | Justo después, taparte otra vez 20 s | **No** pregunta (pausa de 10 min) y no cambia de estado | | |
-| 16 | Con `--movil-a-la-vista`, enseñar el móvil a la cámara, dejarlo en la mesa a la izquierda y apartar la mano | "Movil: visto!" y, al apartar la mano, "Movil: en su sitio" con un recuadro verde | | |
+| 16 | Con `--movil-a-la-vista`, dejar el móvil en la mesa a la izquierda; a los 4 s se abre una ventana: marcarlo con el ratón y pulsar Enter | "Movil: en su sitio" con un recuadro verde y "parecido" alrededor de 0,7 | | |
 | 17 | Con el móvil en su sitio, coger el típex o un boli | Sigue **ESTUDIANDO** | | |
 | 18 | Coger el móvil y usarlo | Recuadro naranja; **USANDO_MOVIL** o, si no se ve en la mano, a los ~4 s "Has cogido el movil?" | | |
 | 19 | Dejarlo otra vez en su sitio | "en su sitio" y a los ~1,5 s **ESTUDIANDO** | | |

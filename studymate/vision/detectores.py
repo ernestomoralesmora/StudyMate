@@ -228,7 +228,7 @@ class DetectorDispositivos(threading.Thread):
         # comprueba su sitio cada PERIODO_APARCADO_S.
         vigilante = self.vigilante
         ahora = time.monotonic()
-        if vigilante.estado.value == "buscando":
+        if vigilante.estado.value == "buscando" and config.LOCALIZAR_APARCADO == "automatico":
             vigilante.seguir_en_mano(
                 frame_rgb, [(d.puntuacion, d.recuadro) for d in encontrados], manos or []
             )
