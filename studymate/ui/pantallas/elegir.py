@@ -4,13 +4,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from studymate.gamificacion import zoo as z
+from studymate.llm.apuntes import BibliotecaApuntes
 
 from ..comun import Pagina, boton, etiqueta
 from ..zoo_widget import AnimalIcono
 
 
 class BotonAsignatura(QPushButton):
-    def __init__(self, recinto: z.Recinto, al_elegir):
+    def __init__(self, recinto: z.Recinto, al_elegir, apuntes: int = 0):
         super().__init__()
         self.setObjectName("eleccion")
         self.setFixedSize(220, 210)
@@ -24,9 +25,9 @@ class BotonAsignatura(QPushButton):
         nombre.setTextFormat(Qt.PlainText)
         nombre.setAlignment(Qt.AlignCenter)
         nombre.setStyleSheet("font-size: 17px;")
-        temas = (", ".join(recinto.temas[:3]) + ("…" if len(recinto.temas) > 3 else "")) if recinto.temas \
-            else "sin temas todavía"
-        detalle = etiqueta(f"{recinto.describir_animales()}\nTemas: {temas}", "nota", ajustar=True)
+        guardados = f"{apuntes} apuntes guardados" if apuntes != 1 else "1 apunte guardado"
+        detalle = etiqueta(f"{recinto.describir_animales()}\n{guardados if apuntes else 'sin apuntes todavía'}",
+                           "nota", ajustar=True)
         detalle.setTextFormat(Qt.PlainText)
         detalle.setAlignment(Qt.AlignCenter)
         for w in (nombre, detalle):
@@ -66,7 +67,8 @@ class PantallaElegir(Pagina):
         zoo = z.cargar(self.ventana.carpeta)
         primero = None
         for i, r in enumerate(zoo.recintos):
-            b = BotonAsignatura(r, self.ventana.elegir_asignatura)
+            apuntes = len(BibliotecaApuntes(self.ventana.carpeta, r.asignatura).documentos())
+            b = BotonAsignatura(r, self.ventana.elegir_asignatura, apuntes)
             primero = primero or b
             self.rejilla.addWidget(b, i // 5, i % 5, Qt.AlignTop | Qt.AlignLeft)
         self.rejilla.setRowStretch((len(zoo.recintos) + 4) // 5, 1)

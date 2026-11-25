@@ -34,7 +34,7 @@ class PantallaBienvenida(Pagina):
         caja = tarjeta(
             titulo_nombre, self.nombre_zoo,
             etiqueta("2. ¿Qué asignaturas tienes este curso? Añade cada una y elige su animal "
-                     "(uno distinto por asignatura). También puedes poner ya sus temas.", None),
+                     "(uno distinto por asignatura). Los apuntes de cada una se suben al estudiarla.", None),
             boton("Añadir una asignatura", None, self._anadir),
             desplazable, self.error, self.crear,
             espacio=14, margen=28,
@@ -74,8 +74,7 @@ class PantallaBienvenida(Pagina):
             capa = QHBoxLayout(fila)
             capa.setContentsMargins(0, 0, 0, 0)
             capa.addWidget(AnimalIcono(r.especie, 36))
-            texto = etiqueta(f"{r.asignatura}  ·  {r.animal.nombre}  ·  "
-                             + (f"{len(r.temas)} temas" if r.temas else "sin temas todavía"))
+            texto = etiqueta(f"{r.asignatura}  ·  {r.animal.nombre}  ·  {r.animal.habitat.lower()}")
             texto.setTextFormat(Qt.PlainText)
             capa.addWidget(texto, 1)
             self.capa_lista.addWidget(fila)
