@@ -70,6 +70,9 @@ class PantallaCuestionario(Pagina):
         # Tiempos: se eligen en la lista o se escriben; la rueda del ratón no los cambia.
         self.tiempo = SelectorMinutos([15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240], 10, 480)
         self.concentracion = SelectorMinutos([10, 15, 20, 25, 30, 40, 45, 50, 60, 90], 5, 120)
+        # La concentración no puede pasar del tiempo que hay hoy para estudiar.
+        self.tiempo.currentIndexChanged.connect(self._ajustar_concentracion)
+        self.tiempo.lineEdit().editingFinished.connect(self._ajustar_concentracion)
         self.cansancio = ComboSinRueda()
         for k, v in NIVELES_CANSANCIO.items():
             self.cansancio.addItem(f"{k} · {v}", k)
@@ -125,7 +128,7 @@ class PantallaCuestionario(Pagina):
             _pregunta("¿Cuánto tiempo tienes hoy para estudiar?", self.tiempo,
                       "Elige en la lista o escribe los minutos."),
             _pregunta("¿Cuántos minutos seguidos sueles aguantar concentrado?", self.concentracion,
-                      "Con esto se decide lo largo que es cada bloque."),
+                      "Con esto se decide lo largo que es cada bloque. Como mucho, el tiempo que tienes hoy."),
             _pregunta("¿Cómo de cansado estás?", self.cansancio),
             _pregunta("¿Cuánto sabes ya del tema?", self.conocimiento),
             _pregunta("¿Cómo vas a estudiar?", dispositivos,
@@ -171,6 +174,9 @@ class PantallaCuestionario(Pagina):
     def _recinto(self) -> z.Recinto | None:
         return z.cargar(self.ventana.carpeta).recinto(self.ventana.asignatura)
 
+    def _ajustar_concentracion(self, *_):
+        self.concentracion.poner_maximo(self.tiempo.value())
+
     def al_mostrar(self) -> None:
         recinto = self._recinto()
         self.icono.set_especie(recinto.especie)
@@ -178,6 +184,7 @@ class PantallaCuestionario(Pagina):
         # Se proponen las respuestas de la última sesión de ESTA asignatura.
         u = recinto.ultimo_cuestionario
         self.tiempo.setValue(u.get("tiempo_disponible_min", 60))
+        self.concentracion.poner_maximo(self.tiempo.value())
         self.concentracion.setValue(u.get("concentracion_min", 25))
         self.cansancio.setCurrentIndex(u.get("cansancio", 2) - 1)
         self.conocimiento.setCurrentIndex(u.get("conocimiento_previo", 2) - 1)
@@ -193,6 +200,7 @@ class PantallaCuestionario(Pagina):
         self.tiempo.setFocus()
 
     def _enviar(self) -> None:
+        self._ajustar_concentracion()  # por si el tiempo se escribió sin salir del campo
         asignatura = self.ventana.asignatura
         # Lo que se estudia hoy son los apuntes marcados: cada archivo es un tema del plan.
         elegidos = self.selector.elegidos()

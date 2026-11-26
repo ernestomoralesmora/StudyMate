@@ -119,13 +119,28 @@ class SelectorMinutos(ComboSinRueda):
     def __init__(self, opciones: list[int], minimo: int, maximo: int, parent=None):
         super().__init__(parent)
         self.minimo, self.maximo = minimo, maximo
+        self.opciones, self.tope = list(opciones), maximo
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.NoInsert)  # lo escrito no se añade a la lista
-        for m in opciones:
-            self.addItem(f"{m} min", m)
+        self._llenar()
         self.lineEdit().setValidator(
             QRegularExpressionValidator(QRegularExpression(r"^\s*\d{0,3}\s*(m|mi|min)?\s*$"), self))
         self.lineEdit().editingFinished.connect(lambda: self.setValue(self.value()))
+
+    def _llenar(self) -> None:
+        self.clear()
+        opciones = [m for m in self.opciones if self.minimo <= m <= self.maximo]
+        if self.maximo not in opciones and self.maximo < self.tope:
+            opciones.append(self.maximo)  # p. ej., con 25 min de estudio, la opción «25 min»
+        for m in opciones:
+            self.addItem(f"{m} min", m)
+
+    def poner_maximo(self, maximo: int) -> None:
+        """Cambia el máximo (sin pasar del original) y ajusta la lista y el valor elegido."""
+        actual = self.value()
+        self.maximo = max(self.minimo, min(self.tope, int(maximo)))
+        self._llenar()
+        self.setValue(min(actual, self.maximo))
 
     def value(self) -> int:
         cifras = "".join(c for c in self.currentText() if c.isdigit())
