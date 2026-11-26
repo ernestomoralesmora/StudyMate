@@ -91,10 +91,9 @@ class PantallaAcceso(Pagina):
         # --- Crear cuenta ------------------------------------------------------------------
         self.nombre = _entrada("Por ejemplo, Pablo")
         self.nuevo_usuario = _entrada("Por ejemplo, pablo")
-        self.curso = _entrada("Por ejemplo, 2º de Ingeniería Informática")
         self.nueva = _entrada("Contraseña", contrasena=True)
         self.repetir = _entrada("Otra vez", contrasena=True)
-        siguiente = [self.nombre, self.nuevo_usuario, self.curso, self.nueva, self.repetir]
+        siguiente = [self.nombre, self.nuevo_usuario, self.nueva, self.repetir]
         for actual, proximo in zip(siguiente, siguiente[1:]):
             actual.returnPressed.connect(proximo.setFocus)
         self.repetir.returnPressed.connect(self._registrar)
@@ -107,7 +106,6 @@ class PantallaAcceso(Pagina):
         self.form_crear = _formulario(
             _campo("¿Cómo te llamas?", self.nombre),
             _campo("Usuario", self.nuevo_usuario, "Para entrar: letras sin tilde y números, sin espacios."),
-            _campo("Curso (opcional)", self.curso),
             contrasenas,
             etiqueta(f"La contraseña, de al menos {us.MIN_CONTRASENA} caracteres.", "nota"),
             self.error_registro,
@@ -206,7 +204,7 @@ class PantallaAcceso(Pagina):
     def _registrar(self) -> None:
         try:
             usuario = us.registrar(self.nuevo_usuario.text(), self.nombre.text(), self.nueva.text(),
-                                   self.repetir.text(), self.curso.text())
+                                   self.repetir.text())
         except us.ErrorUsuario as error:
             self._error(self.error_registro, str(error))
             return
