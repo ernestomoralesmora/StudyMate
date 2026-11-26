@@ -3,14 +3,14 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QPlainTextEdit,
-                               QPushButton, QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QHBoxLayout, QPlainTextEdit,
+                               QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from studymate.gamificacion import zoo as z
 from studymate.llm.apuntes import unir
 from studymate.llm.cuestionario import NIVELES_CANSANCIO, NIVELES_CONOCIMIENTO, PerfilSesion
 
-from ..comun import Pagina, boton, etiqueta, tarjeta
+from ..comun import ComboSinRueda, Pagina, SelectorMinutos, boton, etiqueta, tarjeta
 from ..selector_apuntes import SelectorApuntes, nombre_tema
 from ..zoo_widget import AnimalIcono
 
@@ -67,18 +67,13 @@ def _pregunta(texto: str, campo, ayuda: str | None = None) -> QWidget:
 class PantallaCuestionario(Pagina):
     def __init__(self, ventana):
         super().__init__(ventana)
-        self.tiempo = QSpinBox()
-        self.tiempo.setRange(10, 480)
-        self.tiempo.setSingleStep(5)
-        self.tiempo.setSuffix(" min")
-        self.concentracion = QSpinBox()
-        self.concentracion.setRange(5, 120)
-        self.concentracion.setSingleStep(5)
-        self.concentracion.setSuffix(" min")
-        self.cansancio = QComboBox()
+        # Tiempos: se eligen en la lista o se escriben; la rueda del ratón no los cambia.
+        self.tiempo = SelectorMinutos([15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240], 10, 480)
+        self.concentracion = SelectorMinutos([10, 15, 20, 25, 30, 40, 45, 50, 60, 90], 5, 120)
+        self.cansancio = ComboSinRueda()
         for k, v in NIVELES_CANSANCIO.items():
             self.cansancio.addItem(f"{k} · {v}", k)
-        self.conocimiento = QComboBox()
+        self.conocimiento = ComboSinRueda()
         for k, v in NIVELES_CONOCIMIENTO.items():
             self.conocimiento.addItem(f"{k} · {v}", k)
         # Forma de estudiar: con apuntes, con tablet o con las dos cosas. Con tablet, lo que
@@ -127,7 +122,8 @@ class PantallaCuestionario(Pagina):
                       "Marca los apuntes de hoy: cada uno será un tema del plan. Los que subes se quedan "
                       "guardados en esta asignatura para las próximas veces. Se guarda solo su texto, en "
                       "este ordenador, y al asistente se le manda solo la parte de cada tema."),
-            _pregunta("¿Cuánto tiempo tienes hoy para estudiar?", self.tiempo),
+            _pregunta("¿Cuánto tiempo tienes hoy para estudiar?", self.tiempo,
+                      "Elige en la lista o escribe los minutos."),
             _pregunta("¿Cuántos minutos seguidos sueles aguantar concentrado?", self.concentracion,
                       "Con esto se decide lo largo que es cada bloque."),
             _pregunta("¿Cómo de cansado estás?", self.cansancio),

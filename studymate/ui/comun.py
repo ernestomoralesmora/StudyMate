@@ -1,9 +1,9 @@
 """Piezas comunes de la interfaz: tarjetas, textos, botones e hilos de trabajo."""
 
 import cv2
-from PySide6.QtCore import QThread, Qt, Signal
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtCore import QRegularExpression, QThread, Qt, Signal
+from PySide6.QtGui import QImage, QPixmap, QRegularExpressionValidator
+from PySide6.QtWidgets import QComboBox, QFrame, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 
 class Pagina(QWidget):
@@ -98,3 +98,44 @@ class Trabajo(QThread):
             self.fallo.emit(self.etiqueta, str(error))
             return
         self.listo.emit(self.etiqueta, resultado)
+
+
+class ComboSinRueda(QComboBox):
+    """Desplegable que no cambia con la rueda del ratón: la rueda mueve la página.
+
+    Así, al bajar por un formulario con la rueda, no se cambia un valor sin querer.
+    """
+
+    def wheelEvent(self, evento):  # noqa: N802 (nombre de Qt)
+        evento.ignore()
+
+
+class SelectorMinutos(ComboSinRueda):
+    """Minutos: se eligen en la lista que se despliega o se escriben con el teclado.
+
+    No hay flechas ni rueda. Lo escrito se limita al rango [minimo, maximo].
+    """
+
+    def __init__(self, opciones: list[int], minimo: int, maximo: int, parent=None):
+        super().__init__(parent)
+        self.minimo, self.maximo = minimo, maximo
+        self.setEditable(True)
+        self.setInsertPolicy(QComboBox.NoInsert)  # lo escrito no se añade a la lista
+        for m in opciones:
+            self.addItem(f"{m} min", m)
+        self.lineEdit().setValidator(
+            QRegularExpressionValidator(QRegularExpression(r"^\s*\d{0,3}\s*(m|mi|min)?\s*$"), self))
+        self.lineEdit().editingFinished.connect(lambda: self.setValue(self.value()))
+
+    def value(self) -> int:
+        cifras = "".join(c for c in self.currentText() if c.isdigit())
+        valor = int(cifras) if cifras else self.minimo
+        return max(self.minimo, min(self.maximo, valor))
+
+    def setValue(self, minutos: int) -> None:  # noqa: N802 (como QSpinBox)
+        minutos = max(self.minimo, min(self.maximo, int(minutos)))
+        indice = self.findData(minutos)
+        if indice >= 0:
+            self.setCurrentIndex(indice)
+        else:
+            self.setEditText(f"{minutos} min")
