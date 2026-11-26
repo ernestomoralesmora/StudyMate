@@ -30,7 +30,7 @@ class BarrasAvance(QWidget):
     def __init__(self, sesiones: list[dict]):
         super().__init__()
         self.sesiones = sesiones[-10:]
-        self.setFixedHeight(34)
+        self.setFixedHeight(26)
         nombres = {"muy_buena": "muy buena", "regular": "regular", "mala": "mala"}
         self.setAccessibleName("Últimas sesiones: " + (", ".join(
             nombres.get(s["calificacion"], s["calificacion"]) for s in self.sesiones) or "ninguna"))
@@ -44,16 +44,30 @@ class BarrasAvance(QWidget):
             p.drawText(self.rect(), Qt.AlignVCenter | Qt.AlignLeft, "Aún no hay sesiones")
             p.end()
             return
-        ancho = min(22.0, (self.width() - 9 * 5) / 10)
+        ancho = min(18.0, (self.width() - 9 * 5) / 10)
         maximo = max(60.0, max(s.get("minutos", 0) for s in self.sesiones))
         for i, s in enumerate(self.sesiones):
-            alto = 8 + 26 * min(1.0, s.get("minutos", 0) / maximo)
+            alto = 6 + 20 * min(1.0, s.get("minutos", 0) / maximo)
             p.setBrush(QColor(estilo.COLOR_CALIFICACION.get(s["calificacion"], estilo.TEXTO_2)))
             p.drawRoundedRect(QRectF(i * (ancho + 5), self.height() - alto, ancho, alto), 4, 4)
         p.end()
 
 
-ANCHO_TARJETA = 300
+ANCHO_TARJETA = 260
+
+# Tarjetas y panel más compactos: letra y botones algo más pequeños que en el resto.
+ESTILO_TARJETA = """
+QLabel#nota { font-size: 12px; }
+QLabel#seccion { font-size: 11px; }
+QPushButton { min-height: 32px; font-size: 13px; padding: 0 10px; border-radius: 10px; }
+QProgressBar { height: 8px; }
+"""
+ESTILO_LATERAL = """
+QLabel { font-size: 14px; }
+QLabel#cifra { font-size: 20px; }
+QLabel#nota { font-size: 12px; }
+QPushButton { min-height: 36px; font-size: 14px; }
+"""
 
 
 class TarjetaRecinto(QFrame):
@@ -61,21 +75,23 @@ class TarjetaRecinto(QFrame):
         super().__init__()
         self.setObjectName("tarjeta")
         self.setFixedWidth(ANCHO_TARJETA)  # tamaño fijo: no se estiran aunque haya pocas
+        self.setStyleSheet(ESTILO_TARJETA)
         r = recinto
         capa = QVBoxLayout(self)
-        capa.setContentsMargins(0, 0, 0, 16)
-        capa.setSpacing(10)
+        capa.setContentsMargins(0, 0, 0, 12)
+        capa.setSpacing(8)
         capa.addWidget(RecintoWidget(r))
 
         cuerpo = QVBoxLayout()
-        cuerpo.setContentsMargins(16, 0, 16, 0)
-        cuerpo.setSpacing(8)
+        cuerpo.setContentsMargins(12, 0, 12, 0)
+        cuerpo.setSpacing(6)
         cabecera = QHBoxLayout()
-        cabecera.addWidget(AnimalIcono(r.especie, 34))
+        cabecera.setSpacing(8)
+        cabecera.addWidget(AnimalIcono(r.especie, 28))
         textos = QVBoxLayout()
         nombre = etiqueta(r.asignatura, "cifra", ajustar=True)
         nombre.setTextFormat(Qt.PlainText)
-        nombre.setStyleSheet("font-size: 18px;")
+        nombre.setStyleSheet("font-size: 15px;")
         textos.addWidget(nombre)
         textos.addWidget(etiqueta(f"{r.animal.habitat} · {r.describir_animales()}", "nota"))
         cabecera.addLayout(textos, 1)
@@ -174,7 +190,8 @@ class PantallaInicio(Pagina):
         lateral.addStretch()
         caja_lateral = QWidget()
         caja_lateral.setLayout(lateral)
-        caja_lateral.setFixedWidth(340)
+        caja_lateral.setFixedWidth(280)
+        caja_lateral.setStyleSheet(ESTILO_LATERAL)
 
         cuerpo = QHBoxLayout()
         cuerpo.setSpacing(16)

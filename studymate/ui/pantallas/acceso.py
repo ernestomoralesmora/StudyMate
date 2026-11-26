@@ -14,8 +14,8 @@ from studymate import usuarios as us
 from ..comun import Pagina, boton, etiqueta, tarjeta
 from ..companero import Companero
 
-ANCHO = 460      # ancho de la columna central
-ALTO_CAMPO = 46  # alto fijo de cada campo: así nunca se cortan las letras
+ANCHO = 400      # ancho de la columna central
+ALTO_CAMPO = 38  # alto fijo de cada campo: así nunca se cortan las letras
 
 
 def _entrada(marcador: str = "", contrasena: bool = False) -> QLineEdit:
@@ -31,7 +31,7 @@ def _campo(texto: str, campo: QLineEdit, ayuda: str | None = None) -> QWidget:
     caja = QWidget()
     capa = QVBoxLayout(caja)
     capa.setContentsMargins(0, 0, 0, 0)
-    capa.setSpacing(6)
+    capa.setSpacing(4)
     titulo = etiqueta(texto, "etiqueta_campo")
     titulo.setBuddy(campo)  # lectores de pantalla: el rótulo nombra el campo
     capa.addWidget(titulo)
@@ -45,7 +45,7 @@ def _formulario(*hijos) -> QWidget:
     caja = QWidget()
     capa = QVBoxLayout(caja)
     capa.setContentsMargins(0, 0, 0, 0)
-    capa.setSpacing(16)
+    capa.setSpacing(10)
     for h in hijos:
         if isinstance(h, QWidget):
             capa.addWidget(h)
@@ -114,12 +114,12 @@ class PantallaAcceso(Pagina):
             boton("Crear mi cuenta", "primario", self._registrar),
         )
 
-        caja = tarjeta(pestanas, self.form_entrar, self.form_crear, espacio=22, margen=28)
+        caja = tarjeta(pestanas, self.form_entrar, self.form_crear, espacio=14, margen=20)
         caja.setObjectName("tarjeta_acceso")
 
         # --- Cabecera: logo, nombre y frase -------------------------------------------------
-        companero = Companero("feliz", lado_minimo=104)
-        companero.setFixedSize(104, 104)
+        companero = Companero("feliz", lado_minimo=72)
+        companero.setFixedSize(72, 72)
         nombre_app = etiqueta("StudyMate", "marca")
         nombre_app.setAlignment(Qt.AlignCenter)
         frase = etiqueta("Tu compañero de estudio. Cuenta el tiempo que estudias de verdad y lo "
@@ -136,13 +136,13 @@ class PantallaAcceso(Pagina):
         capa_columna.setContentsMargins(0, 0, 0, 0)
         capa_columna.setSpacing(0)
         capa_columna.addWidget(companero, 0, Qt.AlignHCenter)
-        capa_columna.addSpacing(14)
-        capa_columna.addWidget(nombre_app)
         capa_columna.addSpacing(8)
+        capa_columna.addWidget(nombre_app)
+        capa_columna.addSpacing(4)
         capa_columna.addWidget(frase)
-        capa_columna.addSpacing(28)
+        capa_columna.addSpacing(16)
         capa_columna.addWidget(caja)
-        capa_columna.addSpacing(18)
+        capa_columna.addSpacing(12)
         capa_columna.addWidget(privacidad)
 
         # Centrado en horizontal y en vertical; si no cabe, se desplaza.
@@ -150,7 +150,7 @@ class PantallaAcceso(Pagina):
         contenido.setObjectName("contenido_acceso")
         contenido.setAttribute(Qt.WA_StyledBackground, True)
         capa_contenido = QVBoxLayout(contenido)
-        capa_contenido.setContentsMargins(24, 32, 24, 32)
+        capa_contenido.setContentsMargins(24, 20, 24, 20)
         capa_contenido.addStretch()
         fila = QHBoxLayout()
         fila.addStretch()
@@ -167,6 +167,12 @@ class PantallaAcceso(Pagina):
         capa = QVBoxLayout(self)
         capa.setContentsMargins(0, 0, 0, 0)
         capa.addWidget(desplazable)
+        # Todo un poco más pequeño que en el resto de la aplicación, para que quepa entero.
+        contenido.setStyleSheet(
+            "QLabel#subtitulo { font-size: 13px; } QLabel#nota { font-size: 12px; }"
+            "QLabel#etiqueta_campo { font-size: 13px; } QLineEdit { font-size: 13px; padding: 0 10px; }"
+            "QPushButton { min-height: 38px; font-size: 14px; }"
+            "QPushButton#pestana { min-height: 32px; }")
 
     def al_mostrar(self) -> None:
         self._modo(0 if us.cargar_usuarios() else 1)
