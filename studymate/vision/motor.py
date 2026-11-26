@@ -193,6 +193,14 @@ class MotorDeteccion(threading.Thread):
                 time.monotonic(),
             )
 
+    def movil_guardado(self) -> None:
+        """El estudiante dice que ha guardado el móvil: se deja de vigilar el sitio
+        (solo la mano) y sale de «Usando el móvil» en cuanto se le vea estudiando."""
+        with self._cerrojo:
+            v = self.vigilante
+            if v is not None and v.estado == SitioMovil.FUERA:
+                v.desactivar()
+
     def marcar_movil(self, frame_bgr, recuadro) -> None:
         """El estudiante ha marcado con el ratón dónde está el móvil."""
         import cv2

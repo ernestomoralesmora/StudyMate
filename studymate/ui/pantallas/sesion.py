@@ -55,7 +55,11 @@ class PantallaSesion(Pagina):
         self.ver_camara.setChecked(True)
         self.ver_camara.toggled.connect(self.camara.setVisible)
         self.sitio = etiqueta("", "nota")
-        lateral = tarjeta(etiqueta("CÁMARA", "seccion"), self.camara, self.ver_camara, self.sitio,
+        self.guardado = boton("He guardado el móvil", None, self._movil_guardado)
+        self.guardado.setToolTip("Si lo has guardado (mochila, otra habitación…), deja de vigilarse su sitio.")
+        self.guardado.hide()
+        self._sitio_anterior = None
+        lateral = tarjeta(etiqueta("CÁMARA", "seccion"), self.camara, self.ver_camara, self.sitio, self.guardado,
                           etiqueta("Las imágenes se analizan en tu ordenador y no se guardan.", "nota"))
 
         cuerpo = QHBoxLayout()
@@ -117,12 +121,16 @@ class PantallaSesion(Pagina):
             self.sitio.setText("📱 Tu móvil está en su sitio.")
         elif sitio == SitioMovil.FUERA and recuadro:
             self.camara.set_sitio(recuadro, estilo.MOVIL, "¡no está!")
-            self.sitio.setText("📱 Tu móvil no está en su sitio.")
+            self.sitio.setText("📱 Tu móvil no está en su sitio: el tiempo se para hasta que lo dejes.")
+            if self._sitio_anterior != SitioMovil.FUERA:
+                QApplication.beep()  # la alarma, al cogerlo
         else:
             self.camara.set_sitio(None)
             self.sitio.setText("Se vigila el móvil en tus manos." if sitio != SitioMovil.SIN_USAR
                                else "")
 
+        self.guardado.setVisible(sitio == SitioMovil.FUERA)
+        self._sitio_anterior = sitio
         duda = inst.estado == Estado.DUDOSO and inst.esperando_confirmacion
         if duda and not self._banner_visible:
             if sitio == SitioMovil.FUERA:
@@ -136,6 +144,12 @@ class PantallaSesion(Pagina):
             self.banner.hide()
             self.setFocus()
         self._banner_visible = duda
+
+    def _movil_guardado(self) -> None:
+        if self.ventana.motor:
+            self.ventana.motor.movil_guardado()
+        self.guardado.hide()
+        self.setFocus()
 
     def _responder(self, estudiando: bool) -> None:
         self.ventana.responder_duda(estudiando)

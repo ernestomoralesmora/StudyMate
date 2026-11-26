@@ -210,7 +210,10 @@ def prueba_movil_aparcado():
     assert clasificar(obs) == E, "el móvil está en la mesa: lo de la mano es otra cosa"
     obs.sitio_movil = SitioMovil.FUERA
     assert clasificar(obs) == M, "fuera de su sitio y en la mano: usando el móvil"
-    assert clasificar(Observacion(caras=[cara], sitio_movil=SitioMovil.FUERA)) == D
+    # Fuera de su sitio aunque no se vea en la mano (26/11: YOLO solo lo ve a ratos):
+    # usando el móvil.
+    assert clasificar(Observacion(caras=[cara], sitio_movil=SitioMovil.FUERA)) == M
+    assert clasificar(Observacion(manos=[mano], sitio_movil=SitioMovil.FUERA)) == M
     assert clasificar(Observacion(sitio_movil=SitioMovil.FUERA)) == A
     assert clasificar(Observacion(sitio_movil=SitioMovil.EN_SU_SITIO)) == A
 

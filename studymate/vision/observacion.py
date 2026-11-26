@@ -174,9 +174,11 @@ def clasificar(
                 if altura_oreja and (lado_izquierdo or lado_derecho):
                     return Estado.DUDOSO
 
-    # El móvil no está donde se dejó y no se ve en la mano: se pregunta.
-    if obs.sitio_movil == SitioMovil.FUERA and obs.hay_cara:
-        return Estado.DUDOSO
+    # El móvil no está donde se dejó: lo está usando, aunque no se vea en la mano
+    # (en la mano YOLO solo lo reconoce a ratos; el sitio vacío se ve siempre).
+    # Si de verdad lo ha guardado, lo dice con el botón «He guardado el móvil».
+    if obs.sitio_movil == SitioMovil.FUERA and (obs.hay_cara or obs.manos):
+        return Estado.USANDO_MOVIL
 
     if obs.hay_cara:
         return Estado.ESTUDIANDO
