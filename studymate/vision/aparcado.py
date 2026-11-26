@@ -70,23 +70,31 @@ def similitud(gris: np.ndarray, plantilla: np.ndarray, recuadro: Recuadro) -> fl
     return valor if np.isfinite(valor) else -1.0
 
 
-def cambio(gris: np.ndarray, referencia: np.ndarray, recuadro: Recuadro) -> float:
+def color_zona(frame_rgb: np.ndarray, recuadro: Recuadro) -> np.ndarray:
+    """La zona del recuadro en color Lab, suavizada (para comparar sin contar el ruido)."""
+    x1, y1, x2, y2 = (int(round(v)) for v in recuadro)
+    zona = frame_rgb[y1:y2, x1:x2]
+    if zona.size == 0:
+        return np.zeros((0, 0, 3), np.float32)
+    return cv2.GaussianBlur(cv2.cvtColor(np.ascontiguousarray(zona), cv2.COLOR_RGB2LAB), (7, 7), 0).astype(np.float32)
+
+
+def cambio(frame_rgb: np.ndarray, referencia: np.ndarray, recuadro: Recuadro) -> float:
     """Fracción (0-1) de la zona marcada que ha cambiado respecto a la referencia.
 
-    El parecido (similitud) se queda alto si el recuadro marcado es grande y el
-    móvil ocupa poco de él (medido el 25/11: 0,73-0,76 con el móvil ya en la
-    mano). Esto mira píxel a píxel: si el móvil ocupa un 30 % del recuadro y se
-    quita, cambia en torno a un 30 %. Se descuenta el cambio de brillo general
-    (la webcam se ajusta sola) y se suaviza para no contar el ruido.
+    El parecido (similitud) se queda alto si el recuadro es grande o si el móvil
+    y la mesa son oscuros (26/11: 0,83 con el móvil ya en la mano). Esto mira
+    píxel a píxel y en COLOR: un móvil negro sobre una mesa oscura apenas cambia
+    el gris, pero sí el tono. Se descuenta el cambio de brillo general (la webcam
+    se ajusta sola) y se suaviza para no contar el ruido.
     """
-    x1, y1, x2, y2 = (int(round(v)) for v in recuadro)
-    actual = gris[y1:y2, x1:x2]
+    actual = color_zona(frame_rgb, recuadro)
     if actual.shape != referencia.shape or actual.size == 0:
         return 1.0
-    a = cv2.GaussianBlur(actual, (5, 5), 0).astype(np.float32)
-    r = cv2.GaussianBlur(referencia, (5, 5), 0).astype(np.float32)
-    diferencia = np.abs((a - a.mean()) - (r - r.mean()))
-    return float((diferencia > config.DIFERENCIA_PIXEL).mean())
+    d = actual - referencia
+    d[:, :, 0] -= np.median(d[:, :, 0])  # brillo general
+    distancia = np.sqrt((d ** 2).sum(axis=2))
+    return float((distancia > config.DIFERENCIA_PIXEL).mean())
 
 
 def _toca(a: Recuadro, b: Recuadro) -> bool:
@@ -112,6 +120,9 @@ class VigilanteMovil:
     plantilla: np.ndarray | None = None
     zona_plantilla: Recuadro | None = None
     referencia: np.ndarray | None = None  # la zona marcada tal cual (para medir el cambio)
+    vacio: np.ndarray | None = None       # cómo queda la zona sin el móvil (se aprende al quitarlo)
+    _anterior: np.ndarray | None = None   # la zona en la comprobación anterior
+    _quietas: int = 0                     # comprobaciones seguidas con la zona quieta
     ultimo_cambio: float = 0.0
     _vistos: list[Recuadro] = field(default_factory=list)
     _intentos: int = 0
@@ -207,7 +218,9 @@ class VigilanteMovil:
         self.plantilla = gris[y1:y2, x1:x2].copy()
         rx1, ry1, rx2, ry2 = (int(round(v)) for v in self.recuadro)
         self.recuadro = (max(0, rx1), max(0, ry1), min(ancho, rx2), min(alto, ry2))
-        self.referencia = gris[self.recuadro[1]:self.recuadro[3], self.recuadro[0]:self.recuadro[2]].copy()
+        self.referencia = color_zona(frame_rgb, self.recuadro)
+        self.vacio = self._anterior = None
+        self._quietas = 0
 
     def marcar_a_mano(self, frame_rgb: np.ndarray, recuadro: Recuadro) -> None:
         """Si YOLO no lo encuentra, el estudiante señala dónde está el móvil.
@@ -239,13 +252,30 @@ class VigilanteMovil:
         )
         gris = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
         self.ultima_similitud = similitud(gris, self.plantilla, self.zona_plantilla)
-        self.ultimo_cambio = cambio(gris, self.referencia, self.recuadro)
+        self.ultimo_cambio = cambio(frame_rgb, self.referencia, self.recuadro)
+        actual = color_zona(frame_rgb, self.recuadro)
+        quieta = self._anterior is not None and cambio(frame_rgb, self._anterior, self.recuadro) <= config.CAMBIO_QUIETO
+        self._quietas = self._quietas + 1 if quieta else 0
+        self._anterior = actual
         # Sigue ahí si YOLO lo ve, o si la imagen se parece y apenas ha cambiado.
         presente = self.ultima_yolo >= config.UMBRAL_MOVIL_DUDOSO or (
             self.ultima_similitud >= config.SIMILITUD_APARCADO
             and self.ultimo_cambio <= config.CAMBIO_MAXIMO_APARCADO
         )
+        if not presente and self.estado == SitioMovil.FUERA and self._quietas >= 2:
+            if self.vacio is None:
+                self.vacio = actual  # quieta y sin el móvil: así se ve la mesa vacía
+            elif cambio(frame_rgb, self.vacio, self.recuadro) > config.CAMBIO_MAXIMO_APARCADO:
+                # Algo se ha dejado ahí y está quieto: el móvil, algo movido. Su nuevo sitio.
+                self.referencia = actual
+                self._guardar_plantilla_solo(frame_rgb)
+                presente = True
         self.registrar(presente)
+
+    def _guardar_plantilla_solo(self, frame_rgb: np.ndarray) -> None:
+        gris = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
+        x1, y1, x2, y2 = self.zona_plantilla
+        self.plantilla = gris[y1:y2, x1:x2].copy()
 
     def registrar(self, presente: bool) -> None:
         """Una comprobación: hace falta fallar varias seguidas para pasar a FUERA."""

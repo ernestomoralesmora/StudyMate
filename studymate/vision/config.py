@@ -79,8 +79,16 @@ HOLGURA_APARCADO = 0.25         # cuánto se puede haber movido sin contar como 
 SIMILITUD_APARCADO = 0.60       # parecido mínimo con la imagen guardada al empezar
 # Además del parecido, qué parte de la zona marcada ha cambiado: si el recuadro
 # es grande y el móvil pequeño dentro, el parecido apenas baja al quitarlo.
-DIFERENCIA_PIXEL = 25           # diferencia de gris (0-255) para contar un píxel como cambiado
-CAMBIO_MAXIMO_APARCADO = 0.12   # si cambia más de esta fracción de la zona, no está
+# Se compara en COLOR (espacio Lab), no en gris: un móvil oscuro sobre una mesa
+# oscura apenas cambia el gris al quitarlo, pero sí el tono. Medido el 26/11 con
+# el vídeo de Pablo (móvil negro en mesa oscura, recuadro ajustado): con el móvil
+# en su sitio cambia un 0-5 %; sin él, un 32-35 %. Con un recuadro grande y el
+# móvil pequeño dentro, al quitarlo cambia menos (~18 %): por eso el límite es
+# bajo. Si se deja el móvil algo movido (~22 %), se reconoce porque la zona ya no
+# se parece a cómo quedó vacía (ver aparcado.py) y se toma como su nuevo sitio.
+DIFERENCIA_PIXEL = 15           # distancia de color (Lab) para contar un píxel como cambiado
+CAMBIO_MAXIMO_APARCADO = 0.15   # si cambia más de esta fracción de la zona, no está
+CAMBIO_QUIETO = 0.05            # entre dos comprobaciones: la zona está quieta (no pasa una mano)
 FALLOS_PARA_FUERA = 2           # comprobaciones seguidas sin verlo para decir "fuera"
 # Si el móvil no está en su sitio ni en la mano, se pregunta "¿Has cogido el
 # móvil?" tras estos segundos (más rápido que otras dudas, que esperan 15 s).

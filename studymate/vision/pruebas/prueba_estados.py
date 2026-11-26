@@ -161,6 +161,33 @@ def prueba_movil_aparcado():
     v3.comprobar(mesa); v3.comprobar(mesa)
     assert v3.estado == SitioMovil.FUERA and v3.ultimo_cambio > 0.12
 
+    # Móvil oscuro sobre mesa oscura (vídeo del 26/11): casi el mismo gris, pero
+    # distinto tono. Antes no se notaba al quitarlo; en color, sí.
+    mesa_oscura = np.full((480, 640, 3), (70, 62, 58), np.uint8)
+    mesa_oscura = np.clip(mesa_oscura.astype(int) + rng.integers(-4, 5, mesa_oscura.shape), 0, 255).astype(np.uint8)
+    con_oscuro = mesa_oscura.copy()
+    con_oscuro[385:460, 45:145] = (40, 74, 72)  # verdoso, con un gris parecido al de la mesa
+    gris = lambda im: cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)[385:460, 45:145].astype(int).mean()
+    assert abs(gris(con_oscuro) - gris(mesa_oscura)) < 8, "el gris apenas cambia"
+    v4 = VigilanteMovil(lambda r: [], activo=True)
+    v4.marcar_a_mano(con_oscuro, (31, 375, 158, 472))
+    v4.comprobar(con_oscuro)
+    assert v4.estado == SitioMovil.EN_SU_SITIO and v4.ultimo_cambio < 0.05
+    v4.comprobar(mesa_oscura); v4.comprobar(mesa_oscura)
+    assert v4.estado == SitioMovil.FUERA, f"móvil oscuro quitado: cambio {v4.ultimo_cambio:.2f}"
+    # Lo vuelve a dejar, algo movido: cuando la zona está quieta y ya no es la mesa
+    # vacía, es su nuevo sitio.
+    for _ in range(3):
+        v4.comprobar(mesa_oscura)  # aprende cómo se ve la mesa vacía
+    movido = mesa_oscura.copy()
+    movido[392:467, 60:158] = (40, 74, 72)
+    v4.comprobar(movido)
+    assert v4.estado == SitioMovil.FUERA, "una sola imagen no basta (podría ser una mano)"
+    for _ in range(3):
+        v4.comprobar(movido)
+    assert v4.estado == SitioMovil.EN_SU_SITIO, "vuelto a dejar algo movido: en su sitio"
+    v4.comprobar(mesa_oscura); v4.comprobar(mesa_oscura)
+    assert v4.estado == SitioMovil.FUERA, "y si se lo vuelve a llevar, fuera otra vez"
     # Si no aparece al empezar, se vigila solo la mano.
     v = VigilanteMovil(lambda r: [], activo=True)
     for _ in range(30):
