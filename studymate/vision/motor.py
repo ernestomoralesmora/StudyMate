@@ -4,8 +4,11 @@ Corre aparte de la interfaz. La interfaz (OpenCV ahora, PySide6 en la fase 3)
 solo lee la última `Instantanea` con `ultima()` y nunca espera a la detección.
 """
 
+import csv
 import threading
 import time
+from datetime import datetime
+from pathlib import Path
 from dataclasses import dataclass
 
 from . import config
@@ -72,7 +75,47 @@ class MotorDeteccion(threading.Thread):
         finally:
             self._listo.set()
 
+    def _abrir_diagnostico(self):
+        """CSV con números (sin imágenes) para ver por qué cambia o no el estado."""
+        if not config.REGISTRAR_DIAGNOSTICO:
+            return None, None
+        try:
+            carpeta = Path(__file__).resolve().parents[2] / "registros"
+            carpeta.mkdir(exist_ok=True)
+            archivo = open(carpeta / f"diagnostico_{datetime.now():%Y%m%d_%H%M%S}.csv", "w",
+                           newline="", encoding="utf-8")
+        except OSError:
+            return None, None
+        escritor = csv.writer(archivo)
+        escritor.writerow(["t", "en_sesion", "estado", "candidato", "sitio_movil", "caras", "manos",
+                           "movil_mano", "descartados", "yolo_sitio", "parecido", "cambio",
+                           "quietas", "vacio_aprendido", "recuadro_sitio"])
+        return archivo, escritor
+
+    def _apuntar(self, escritor, t: float, obs: Observacion, candidato) -> None:
+        v = self.vigilante
+        en_mano = [d for d in obs.dispositivos if d.cerca_de_mano]
+        escritor.writerow([
+            f"{t:.1f}", int(self.en_sesion), self.maquina.estado.value, candidato.value,
+            obs.sitio_movil.value, len(obs.caras), len(obs.manos),
+            max((f"{d.puntuacion:.2f}" for d in en_mano if not d.descartado), default=""),
+            " ".join(f"{d.descartado}:{d.puntuacion:.2f}" for d in en_mano if d.descartado),
+            f"{v.ultima_yolo:.2f}" if v else "", f"{v.ultima_similitud:.2f}" if v else "",
+            f"{v.ultimo_cambio:.2f}" if v else "", v._quietas if v else "",
+            int(v is not None and v.vacio is not None),
+            "" if not (v and v.recuadro) else " ".join(f"{c:.0f}" for c in v.recuadro),
+        ])
+
     def _bucle(self, camara: Camara, analizador: Analizador) -> None:
+        archivo, escritor = self._abrir_diagnostico()
+        try:
+            self._bucle_con(camara, analizador, escritor)
+        finally:
+            if archivo:
+                archivo.close()
+
+    def _bucle_con(self, camara: Camara, analizador: Analizador, escritor) -> None:
+        ultimo_apunte = 0.0
         inicio = time.monotonic()
         fps = 0.0
         anterior = inicio
@@ -110,6 +153,12 @@ class MotorDeteccion(threading.Thread):
                     sitio_movil=obs.sitio_movil,
                     en_sesion=self.en_sesion,
                 )
+                if escritor is not None and ahora - ultimo_apunte >= config.PERIODO_DIAGNOSTICO_S:
+                    ultimo_apunte = ahora
+                    try:
+                        self._apuntar(escritor, ahora - inicio, obs, candidato)
+                    except Exception:  # el diagnóstico nunca debe parar la detección
+                        pass
             self._listo.set()
 
     def esperar_listo(self, timeout: float | None = None) -> bool:

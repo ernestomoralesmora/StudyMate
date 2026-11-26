@@ -229,3 +229,4 @@ studymate/data/*.json
 studymate/data/usuarios/
 # Registros numéricos de prueba_detectores --registrar
 registro_*.csv
+diagnostico_*.csv

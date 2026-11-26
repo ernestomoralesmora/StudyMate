@@ -8,6 +8,12 @@ Todos los umbrales están aquí para poder ajustarlos sin tocar la lógica.
 # Antes 3 s: se notaba lento al coger el móvil o al irse. 1,5 s responde antes;
 # si aparecen pausas falsas por detecciones sueltas, subirlo un poco (2 s).
 MARGEN_CAMBIO_S = 1.5
+
+# Diagnóstico: durante la preparación y la sesión se apuntan cada 0,5 s solo
+# NÚMEROS (estado, móvil, parecido, cambio…) en registros/diagnostico_*.csv,
+# para ver después por qué no cambió de estado. Nunca se guardan imágenes.
+REGISTRAR_DIAGNOSTICO = True
+PERIODO_DIAGNOSTICO_S = 0.5
 # Durante esos segundos se toleran fallos sueltos de detección de hasta esta
 # duración sin reiniciar la cuenta (p. ej., la cara se pierde 2 fotogramas).
 TOLERANCIA_FALLOS_S = 0.5
